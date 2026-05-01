@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <sys:String x:Key="Str.AppTitle">sho — швидкий пошук документів</sys:String>
+    <sys:String x:Key="Str.Folder">Папка:</sys:String>
+    <sys:String x:Key="Str.Browse">Огляд…</sys:String>
+    <sys:String x:Key="Str.Find">Пошук:</sys:String>
+    <sys:String x:Key="Str.Search">Шукати</sys:String>
+    <sys:String x:Key="Str.UseIndex">Використати індекс</sys:String>
+    <sys:String x:Key="Str.MatchCase">З урахуванням регістру</sys:String>
+    <sys:String x:Key="Str.WholeWord">Ціле слово</sys:String>
+    <sys:String x:Key="Str.IndexBuilt">  Індекс: побудовано</sys:String>
+    <sys:String x:Key="Str.IndexNotBuilt">  Індекс: не побудовано</sys:String>
+    <sys:String x:Key="Str.BuildIndex">Побудувати індекс</sys:String>
+    <sys:String x:Key="Str.DeleteIndex">Видалити індекс</sys:String>
+    <sys:String x:Key="Str.Cancel">Скасувати</sys:String>
+    <sys:String x:Key="Str.FilesGroup">Файли (збіги)</sys:String>
+    <sys:String x:Key="Str.LinesGroup">Рядки (контекст)</sys:String>
+    <sys:String x:Key="Str.Col.File">Файл</sys:String>
+    <sys:String x:Key="Str.Col.Hits">Збігів</sys:String>
+    <sys:String x:Key="Str.Col.Ext">Тип</sys:String>
+    <sys:String x:Key="Str.Col.Modified">Змінено (UTC)</sys:String>
+    <sys:String x:Key="Str.Col.Line">Рядок</sys:String>
+    <sys:String x:Key="Str.Col.Snippet">Контекст</sys:String>
+    <sys:String x:Key="Str.Open">Відкрити</sys:String>
+    <sys:String x:Key="Str.Reveal">Показати в Провіднику</sys:String>
+    <sys:String x:Key="Str.CopyPath">Скопіювати шлях</sys:String>
+    <sys:String x:Key="Str.Theme">Тема</sys:String>
+    <sys:String x:Key="Str.Language">Мова</sys:String>
+    <sys:String x:Key="Str.Ready">Готово</sys:String>
+    <sys:String x:Key="Str.Cancelled">Скасовано</sys:String>
+
+</ResourceDictionary>

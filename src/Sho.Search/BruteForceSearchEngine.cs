@@ -25,10 +25,11 @@ public sealed class BruteForceSearchEngine : ISearchEngine
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
+        progress?.Report(new IndexProgress(0, 0, null, "Scanning folder", sw.ElapsedMilliseconds));
         var docs = FileScanner.Enumerate(rootFolder, _registry.SupportedExtensions).ToList();
         int total = docs.Count;
         int done = 0;
-        progress?.Report(new IndexProgress(0, total, null, "Scanning"));
+        progress?.Report(new IndexProgress(0, total, null, "Scanning", sw.ElapsedMilliseconds));
 
         var fileMap = new ConcurrentDictionary<string, int>();
         var hits = new ConcurrentBag<SearchHit>();
@@ -46,6 +47,8 @@ public sealed class BruteForceSearchEngine : ISearchEngine
             await Parallel.ForEachAsync(docs, parOpts, async (doc, ct) =>
             {
                 if (Volatile.Read(ref totalHits) >= hitCap) return;
+                progress?.Report(new IndexProgress(Volatile.Read(ref done), total, doc.Path, "Scanning", sw.ElapsedMilliseconds));
+
                 var extractor = _registry.Resolve(doc.Path);
                 if (extractor == null) { Interlocked.Increment(ref done); return; }
 
@@ -65,8 +68,7 @@ public sealed class BruteForceSearchEngine : ISearchEngine
                 if (fileHits > 0) fileMap[doc.Path] = fileHits;
 
                 int processed = Interlocked.Increment(ref done);
-                if ((processed & 31) == 0)
-                    progress?.Report(new IndexProgress(processed, total, doc.Path, "Scanning"));
+                progress?.Report(new IndexProgress(processed, total, doc.Path, "Scanning", sw.ElapsedMilliseconds));
             }).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -83,7 +85,7 @@ public sealed class BruteForceSearchEngine : ISearchEngine
             };
         }
 
-        progress?.Report(new IndexProgress(total, total, null, "Done"));
+        progress?.Report(new IndexProgress(total, total, null, "Done", sw.ElapsedMilliseconds));
 
         var docByPath = docs.ToDictionary(d => d.Path, StringComparer.OrdinalIgnoreCase);
         var summaries = fileMap

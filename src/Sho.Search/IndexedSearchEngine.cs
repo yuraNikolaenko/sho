@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Documents;
 using Lucene.Net.Index;
+using Lucene.Net.QueryParsers.Classic;
 using Lucene.Net.Search;
 using Lucene.Net.Util;
 using Sho.Core.Abstractions;
@@ -53,12 +55,14 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken)
     {
+        var sw = Stopwatch.StartNew();
         var indexDir = GetIndexDir(rootFolder);
         IODirectory.CreateDirectory(indexDir);
 
+        progress?.Report(new IndexProgress(0, 0, null, "Scanning folder", sw.ElapsedMilliseconds));
         var docs = FileScanner.Enumerate(rootFolder, _registry.SupportedExtensions).ToList();
         int total = docs.Count;
-        progress?.Report(new IndexProgress(0, total, null, "Indexing"));
+        progress?.Report(new IndexProgress(0, total, null, "Indexing", sw.ElapsedMilliseconds));
 
         using var directory = LuceneFSDirectory.Open(indexDir);
         using var analyzer = new StandardAnalyzer(LV);
@@ -72,6 +76,8 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
         foreach (var d in docs)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(new IndexProgress(done, total, d.Path, "Indexing", sw.ElapsedMilliseconds));
+
             var extractor = _registry.Resolve(d.Path);
             if (extractor == null) { done++; continue; }
 
@@ -88,14 +94,12 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
                 new TextField("content", text ?? string.Empty, Field.Store.YES)
             };
             writer.AddDocument(doc);
-
             done++;
-            if ((done & 15) == 0)
-                progress?.Report(new IndexProgress(done, total, d.Path, "Indexing"));
         }
 
+        progress?.Report(new IndexProgress(done, total, null, "Committing index", sw.ElapsedMilliseconds));
         writer.Commit();
-        progress?.Report(new IndexProgress(total, total, null, "Indexed"));
+        progress?.Report(new IndexProgress(total, total, null, "Indexed", sw.ElapsedMilliseconds));
     }
 
     public async Task<SearchResult> SearchAsync(
@@ -168,8 +172,26 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
         };
     }
 
-    private static Query BuildLuceneQuery(SearchQuery q)
+    internal static Query BuildLuceneQuery(SearchQuery q)
     {
+        if (HasQuerySyntax(q.Text))
+        {
+            try
+            {
+                var analyzer = new StandardAnalyzer(LV);
+                var parser = new QueryParser(LV, "content", analyzer)
+                {
+                    AllowLeadingWildcard = true,
+                    DefaultOperator = QueryParserBase.AND_OPERATOR,
+                };
+                return parser.Parse(q.Text);
+            }
+            catch
+            {
+                // fall through to literal
+            }
+        }
+
         var terms = q.Text
             .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .Select(t => q.CaseSensitive ? t : t.ToLowerInvariant())
@@ -180,13 +202,21 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
             return new BooleanQuery();
 
         if (terms.Count == 1)
-        {
-            string term = terms[0];
-            return new WildcardQuery(new Term("content", $"*{term}*"));
-        }
+            return new WildcardQuery(new Term("content", $"*{terms[0]}*"));
 
         var phrase = new PhraseQuery { Slop = 0 };
         foreach (var t in terms) phrase.Add(new Term("content", t));
         return phrase;
+    }
+
+    private static readonly Regex BoolKeywords = new(@"\b(AND|OR|NOT)\b", RegexOptions.Compiled);
+    private static readonly char[] OperatorChars = { '+', '-', '"', '(', ')', '*', '?', '~', '^', ':', '\\', '[', ']', '{', '}' };
+
+    internal static bool HasQuerySyntax(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        if (s.IndexOfAny(OperatorChars) >= 0) return true;
+        if (BoolKeywords.IsMatch(s)) return true;
+        return false;
     }
 }

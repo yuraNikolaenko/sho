@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Sho.Core.Abstractions;
@@ -31,12 +32,70 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _progressFraction;
     [ObservableProperty] private string? _progressStage;
     [ObservableProperty] private bool _indexExists;
+    [ObservableProperty] private string? _currentFile;
+    [ObservableProperty] private string _progressDetail = string.Empty;
+
+    private readonly DispatcherTimer _heartbeat = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private DateTime _currentFileStartedUtc;
+    private long _lastReportedElapsedMs;
+    private int _lastFilesProcessed;
+    private int _lastFilesTotal;
 
     public MainViewModel()
     {
         _registry = new TextExtractorRegistry();
         _brute = new BruteForceSearchEngine(_registry);
         _indexed = new IndexedSearchEngine(_registry);
+        _heartbeat.Tick += OnHeartbeat;
+    }
+
+    private void OnHeartbeat(object? sender, EventArgs e)
+    {
+        if (!IsBusy) return;
+        UpdateStatusText();
+    }
+
+    private void UpdateStatusText()
+    {
+        if (_lastFilesTotal == 0)
+        {
+            StatusText = ProgressStage ?? "Working…";
+            return;
+        }
+        double pct = ProgressFraction * 100.0;
+        double elapsedSec = _lastReportedElapsedMs / 1000.0;
+        double fps = elapsedSec > 0 ? _lastFilesProcessed / elapsedSec : 0;
+        var eta = ComputeEta(elapsedSec);
+        var onCurrent = (DateTime.UtcNow - _currentFileStartedUtc).TotalSeconds;
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append(ProgressStage ?? "Working")
+          .Append(' ').Append(_lastFilesProcessed).Append('/').Append(_lastFilesTotal)
+          .Append(" (").Append(pct.ToString("F1")).Append("%)");
+        if (fps > 0) sb.Append(" · ").Append(fps.ToString("F1")).Append(" f/s");
+        if (eta != null) sb.Append(" · ETA ").Append(FormatDuration(eta.Value));
+        if (!string.IsNullOrEmpty(CurrentFile))
+        {
+            sb.Append(" · ").Append(Path.GetFileName(CurrentFile));
+            if (onCurrent >= 2) sb.Append(" (").Append(FormatDuration(TimeSpan.FromSeconds(onCurrent))).Append(" on this file)");
+        }
+        StatusText = sb.ToString();
+    }
+
+    private TimeSpan? ComputeEta(double elapsedSec)
+    {
+        if (_lastFilesProcessed == 0 || _lastFilesTotal == 0 || elapsedSec <= 0) return null;
+        int remaining = _lastFilesTotal - _lastFilesProcessed;
+        if (remaining <= 0) return TimeSpan.Zero;
+        double secPerFile = elapsedSec / _lastFilesProcessed;
+        return TimeSpan.FromSeconds(secPerFile * remaining);
+    }
+
+    private static string FormatDuration(TimeSpan t)
+    {
+        if (t.TotalSeconds < 60) return $"{t.TotalSeconds:F0}s";
+        if (t.TotalMinutes < 60) return $"{(int)t.TotalMinutes}m{t.Seconds:D2}s";
+        return $"{(int)t.TotalHours}h{t.Minutes:D2}m";
     }
 
     partial void OnFolderPathChanged(string? value) => _ = RefreshIndexStateAsync();
@@ -158,6 +217,13 @@ public partial class MainViewModel : ObservableObject
         ProgressFraction = 0;
         ProgressStage = startStatus;
         StatusText = startStatus + "…";
+        CurrentFile = null;
+        _lastFilesProcessed = 0;
+        _lastFilesTotal = 0;
+        _lastReportedElapsedMs = 0;
+        _currentFileStartedUtc = DateTime.UtcNow;
+        _heartbeat.Start();
+
         _cts = new CancellationTokenSource();
         SearchCommand.NotifyCanExecuteChanged();
         BuildIndexCommand.NotifyCanExecuteChanged();
@@ -168,8 +234,15 @@ public partial class MainViewModel : ObservableObject
         {
             ProgressFraction = p.Fraction;
             ProgressStage = p.Stage;
-            if (!string.IsNullOrEmpty(p.CurrentFile))
-                StatusText = $"{p.Stage}: {Path.GetFileName(p.CurrentFile)} ({p.FilesProcessed}/{p.FilesTotal})";
+            _lastFilesProcessed = p.FilesProcessed;
+            _lastFilesTotal = p.FilesTotal;
+            _lastReportedElapsedMs = p.ElapsedMs;
+            if (p.CurrentFile != CurrentFile)
+            {
+                CurrentFile = p.CurrentFile;
+                _currentFileStartedUtc = DateTime.UtcNow;
+            }
+            UpdateStatusText();
         });
 
         try
@@ -186,8 +259,10 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            _heartbeat.Stop();
             IsBusy = false;
             ProgressFraction = 0;
+            CurrentFile = null;
             _cts?.Dispose();
             _cts = null;
             SearchCommand.NotifyCanExecuteChanged();

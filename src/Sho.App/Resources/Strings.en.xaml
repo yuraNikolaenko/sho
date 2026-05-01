@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <sys:String x:Key="Str.AppTitle">sho — fast document search</sys:String>
+    <sys:String x:Key="Str.Folder">Folder:</sys:String>
+    <sys:String x:Key="Str.Browse">Browse…</sys:String>
+    <sys:String x:Key="Str.Find">Find:</sys:String>
+    <sys:String x:Key="Str.Search">Search</sys:String>
+    <sys:String x:Key="Str.UseIndex">Use index</sys:String>
+    <sys:String x:Key="Str.MatchCase">Match case</sys:String>
+    <sys:String x:Key="Str.WholeWord">Whole word</sys:String>
+    <sys:String x:Key="Str.IndexBuilt">  Index: built</sys:String>
+    <sys:String x:Key="Str.IndexNotBuilt">  Index: not built</sys:String>
+    <sys:String x:Key="Str.BuildIndex">Build index</sys:String>
+    <sys:String x:Key="Str.DeleteIndex">Delete index</sys:String>
+    <sys:String x:Key="Str.Cancel">Cancel</sys:String>
+    <sys:String x:Key="Str.FilesGroup">Files (matches)</sys:String>
+    <sys:String x:Key="Str.LinesGroup">Lines (context)</sys:String>
+    <sys:String x:Key="Str.Col.File">File</sys:String>
+    <sys:String x:Key="Str.Col.Hits">Hits</sys:String>
+    <sys:String x:Key="Str.Col.Ext">Type</sys:String>
+    <sys:String x:Key="Str.Col.Modified">Modified (UTC)</sys:String>
+    <sys:String x:Key="Str.Col.Line">Line</sys:String>
+    <sys:String x:Key="Str.Col.Snippet">Snippet</sys:String>
+    <sys:String x:Key="Str.Open">Open</sys:String>
+    <sys:String x:Key="Str.Reveal">Reveal in Explorer</sys:String>
+    <sys:String x:Key="Str.CopyPath">Copy path</sys:String>
+    <sys:String x:Key="Str.Theme">Theme</sys:String>
+    <sys:String x:Key="Str.Language">Language</sys:String>
+    <sys:String x:Key="Str.Ready">Ready</sys:String>
+    <sys:String x:Key="Str.Cancelled">Cancelled</sys:String>
+
+</ResourceDictionary>

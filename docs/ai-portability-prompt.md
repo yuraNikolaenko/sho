@@ -160,6 +160,9 @@ IndexedEngine:
       mtime (long,  stored=YES)
       content (text, indexed=YES, stored=YES, analyzer=стандартний)
   - searchQuery → побудова запиту:
+      Якщо в q.text є будь-який з: + - " ( ) * ? ~ ^ : \ [ ] { }
+      або слова AND / OR / NOT → ПРОПУСТИТИ через рідний QueryParser
+      бекенду (Lucene-syntax: phrase, boolean, wildcard, fuzzy, fields).
       1 термін → wildcard "*term*" (substring) через content
       2+ термінів → phrase query через content із slop=0
   - search: візьми top-N (>=maxLineHits), для кожного дістань content
@@ -171,6 +174,7 @@ IndexedEngine:
 UI (фреймворк-незалежно)
 ============================================================================
 Layout (зверху вниз):
+  [TitleBar]: app title + theme toggle (Light/Dark) + language combo (UA/EN)
   [Folder]: text input + [Browse…] (відкриває діалог вибору папки)
   [Find]:   text input (Enter = Search) + [Search]
   Опції: ☐Use index  ☐Match case  ☐Whole word
@@ -180,6 +184,22 @@ Layout (зверху вниз):
     лівий список «Files (matches)»: File | Hits | Ext | Modified
     правий список «Lines (context)»: File | Line | Snippet
   Статус-бар: текст + прогрес-бар, видимий поки isBusy
+
+Налаштування (persist у user-local JSON):
+  theme:     "Light" | "Dark" (default Dark)
+  language:  ISO code, дефолт "uk", альтернативи "en", + (свій список)
+  lastFolder: string?
+
+Локалізація:
+  УСІ user-facing рядки в коді — через ключ ("Str.Search", "Str.Cancel", ...)
+  з runtime-resource словника. Перемикання мови НЕ потребує перезапуску.
+
+Прогрес під час BuildIndex / Search:
+  - звіт ПЕРЕД обробкою файлу (не після батча!): currentFile, filesProcessed/Total, elapsedMs
+  - UI heartbeat 500 мс: показує "(XXs on this file)" коли поточний файл
+    обробляється довше 2 с — ключове, щоб користувач бачив, що великий PDF
+    не "завис", а просто довго парситься
+  - формат статусу: "{stage} {n}/{total} ({pct%}) · {f/s} · ETA {duration} · {filename} ({Xs on this file})"
 
 Поведінка:
   - DoubleClick на елементі → відкрити файл у дефолтній програмі ОС.

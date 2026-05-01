@@ -1,11 +1,15 @@
-<Window x:Class="Sho.App.MainWindow"
+<ui:FluentWindow x:Class="Sho.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vm="clr-namespace:Sho.App.ViewModels"
         xmlns:conv="clr-namespace:Sho.App.Converters"
-        Title="sho — fast document search" Height="720" Width="1200"
+        Title="{DynamicResource Str.AppTitle}"
+        Height="760" Width="1280"
         WindowStartupLocation="CenterScreen"
-        FontFamily="Segoe UI" FontSize="13">
+        WindowBackdropType="Mica"
+        ExtendsContentIntoTitleBar="True"
+        FontFamily="Segoe UI Variable" FontSize="13">
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:PathToFileNameConverter x:Key="PathToFileNameConverter"/>
@@ -15,119 +19,198 @@
     <Window.DataContext>
         <vm:MainViewModel/>
     </Window.DataContext>
-    <Grid Margin="8">
+
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
-            <Button DockPanel.Dock="Right" Content="Browse…" Padding="12,4" Margin="6,0,0,0"
-                    Command="{Binding SelectFolderCommand}"/>
-            <TextBlock DockPanel.Dock="Left" Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBox Text="{Binding FolderPath, UpdateSourceTrigger=PropertyChanged}"
-                     VerticalContentAlignment="Center" Padding="6,4"/>
-        </DockPanel>
+        <ui:TitleBar Grid.Row="0"
+                     Title="{DynamicResource Str.AppTitle}"
+                     ShowMaximize="True" ShowMinimize="True">
+            <ui:TitleBar.TrailingContent>
+                <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
+                    <ComboBox x:Name="LanguageCombo" Width="90" Margin="4,0"
+                              SelectionChanged="LanguageCombo_SelectionChanged"
+                              ToolTip="{DynamicResource Str.Language}">
+                        <ComboBoxItem Content="Українська" Tag="uk"/>
+                        <ComboBoxItem Content="English" Tag="en"/>
+                    </ComboBox>
+                    <ui:Button x:Name="ThemeButton" Margin="4,0"
+                               Icon="{ui:SymbolIcon WeatherMoon24}"
+                               ToolTip="{DynamicResource Str.Theme}"
+                               Click="ThemeButton_Click"/>
+                </StackPanel>
+            </ui:TitleBar.TrailingContent>
+        </ui:TitleBar>
 
-        <DockPanel Grid.Row="1" Margin="0,0,0,6" LastChildFill="True">
-            <Button DockPanel.Dock="Right" Content="Search" Padding="16,4" Margin="6,0,0,0"
-                    Command="{Binding SearchCommand}" IsDefault="True"/>
-            <TextBlock DockPanel.Dock="Left" Text="Find:" VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
-                     VerticalContentAlignment="Center" Padding="6,4" FontSize="14"/>
-        </DockPanel>
+        <Grid Grid.Row="1" Margin="16,8,16,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="2" Margin="0,0,0,8" LastChildFill="False">
-            <CheckBox DockPanel.Dock="Left" Content="Use index"
-                      IsChecked="{Binding UseIndex}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <CheckBox DockPanel.Dock="Left" Content="Match case"
-                      IsChecked="{Binding CaseSensitive}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <CheckBox DockPanel.Dock="Left" Content="Whole word"
-                      IsChecked="{Binding WholeWord}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
-                       Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"
-                       Text="{Binding IndexExists, Converter={StaticResource BoolToIndexStatusConverter}}"/>
+            <ui:Card Grid.Row="0" Margin="0,0,0,8" Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-            <Button DockPanel.Dock="Right" Content="Cancel" Padding="10,4" Margin="6,0,0,0"
-                    Command="{Binding CancelCommand}"/>
-            <Button DockPanel.Dock="Right" Content="Delete index" Padding="10,4" Margin="6,0,0,0"
-                    Command="{Binding DeleteIndexCommand}"/>
-            <Button DockPanel.Dock="Right" Content="Build / rebuild index" Padding="10,4" Margin="6,0,0,0"
-                    Command="{Binding BuildIndexCommand}"/>
-        </DockPanel>
+                    <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Browse}"
+                                   Margin="6,0,0,0" Padding="14,4"
+                                   Command="{Binding SelectFolderCommand}"
+                                   Icon="{ui:SymbolIcon Folder24}"/>
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Text="{DynamicResource Str.Folder}"/>
+                        <ui:TextBox Text="{Binding FolderPath, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="C:\..."
+                                    VerticalContentAlignment="Center"/>
+                    </DockPanel>
 
-        <Grid Grid.Row="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="280"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="2*" MinWidth="400"/>
-            </Grid.ColumnDefinitions>
+                    <DockPanel Grid.Row="1">
+                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Search}"
+                                   Margin="6,0,0,0" Padding="20,4"
+                                   Appearance="Primary"
+                                   Command="{Binding SearchCommand}" IsDefault="True"
+                                   Icon="{ui:SymbolIcon Search24}"/>
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Text="{DynamicResource Str.Find}"/>
+                        <ui:TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                                    VerticalContentAlignment="Center" FontSize="14"
+                                    PlaceholderText='Ніколаенко   |   "Юрій Вікторович"   |   foo AND bar   |   ext:pdf'/>
+                    </DockPanel>
+                </Grid>
+            </ui:Card>
 
-            <GroupBox Grid.Column="0" Header="Files (matches)">
-                <DataGrid ItemsSource="{Binding Files}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          SelectionMode="Single"
-                          GridLinesVisibility="Horizontal"
-                          HeadersVisibility="Column"
-                          MouseDoubleClick="FilesGrid_MouseDoubleClick"
-                          Name="FilesGrid">
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Open" Click="MenuOpen_Click"/>
-                            <MenuItem Header="Reveal in Explorer" Click="MenuReveal_Click"/>
-                            <MenuItem Header="Copy path" Click="MenuCopyPath_Click"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
-                        <DataGridTextColumn Header="Hits" Binding="{Binding HitCount}" Width="60"/>
-                        <DataGridTextColumn Header="Ext" Binding="{Binding Extension}" Width="60"/>
-                        <DataGridTextColumn Header="Modified (UTC)" Binding="{Binding ModifiedUtc, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="130"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </GroupBox>
+            <ui:Card Grid.Row="1" Margin="0,0,0,8" Padding="12">
+                <DockPanel LastChildFill="False">
+                    <ui:ToggleSwitch DockPanel.Dock="Left" Content="{DynamicResource Str.UseIndex}"
+                                     IsChecked="{Binding UseIndex}" Margin="0,0,16,0"/>
+                    <CheckBox DockPanel.Dock="Left" Content="{DynamicResource Str.MatchCase}"
+                              IsChecked="{Binding CaseSensitive}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <CheckBox DockPanel.Dock="Left" Content="{DynamicResource Str.WholeWord}"
+                              IsChecked="{Binding WholeWord}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                    <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
+                               Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"
+                               Text="{Binding IndexExists, Converter={StaticResource BoolToIndexStatusConverter}}"/>
 
-            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
+                    <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Cancel}"
+                               Margin="6,0,0,0" Padding="10,4"
+                               Command="{Binding CancelCommand}"
+                               Icon="{ui:SymbolIcon Stop24}"/>
+                    <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.DeleteIndex}"
+                               Margin="6,0,0,0" Padding="10,4"
+                               Command="{Binding DeleteIndexCommand}"
+                               Icon="{ui:SymbolIcon Delete24}"/>
+                    <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.BuildIndex}"
+                               Margin="6,0,0,0" Padding="10,4"
+                               Command="{Binding BuildIndexCommand}"
+                               Icon="{ui:SymbolIcon DatabaseSearch24}"/>
+                </DockPanel>
+            </ui:Card>
 
-            <GroupBox Grid.Column="2" Header="Lines (context)">
-                <DataGrid ItemsSource="{Binding Lines}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          SelectionMode="Single"
-                          GridLinesVisibility="Horizontal"
-                          HeadersVisibility="Column"
-                          RowHeight="22"
-                          MouseDoubleClick="LinesGrid_MouseDoubleClick"
-                          Name="LinesGrid">
-                    <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="Open" Click="MenuLineOpen_Click"/>
-                            <MenuItem Header="Reveal in Explorer" Click="MenuLineReveal_Click"/>
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="File" Binding="{Binding FilePath, Converter={StaticResource PathToFileNameConverter}}" Width="180"/>
-                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60"/>
-                        <DataGridTextColumn Header="Snippet" Binding="{Binding Snippet}" Width="*"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </GroupBox>
+            <Grid Grid.Row="3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="320"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="2*" MinWidth="420"/>
+                </Grid.ColumnDefinitions>
+
+                <ui:Card Grid.Column="0" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Margin="12,8" FontWeight="SemiBold"
+                                   Text="{DynamicResource Str.FilesGroup}"/>
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding Files}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  MouseDoubleClick="FilesGrid_MouseDoubleClick"
+                                  Name="FilesGrid">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{DynamicResource Str.Open}" Click="MenuOpen_Click"/>
+                                    <MenuItem Header="{DynamicResource Str.Reveal}" Click="MenuReveal_Click"/>
+                                    <MenuItem Header="{DynamicResource Str.CopyPath}" Click="MenuCopyPath_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.File}" Binding="{Binding FileName}" Width="*"/>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.Hits}" Binding="{Binding HitCount}" Width="60"/>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.Ext}" Binding="{Binding Extension}" Width="60"/>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.Modified}" Binding="{Binding ModifiedUtc, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="130"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ui:Card>
+
+                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent"/>
+
+                <ui:Card Grid.Column="2" Padding="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Margin="12,8" FontWeight="SemiBold"
+                                   Text="{DynamicResource Str.LinesGroup}"/>
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding Lines}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  Background="Transparent"
+                                  BorderThickness="0"
+                                  RowHeight="22"
+                                  MouseDoubleClick="LinesGrid_MouseDoubleClick"
+                                  Name="LinesGrid">
+                            <DataGrid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="{DynamicResource Str.Open}" Click="MenuLineOpen_Click"/>
+                                    <MenuItem Header="{DynamicResource Str.Reveal}" Click="MenuLineReveal_Click"/>
+                                </ContextMenu>
+                            </DataGrid.ContextMenu>
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.File}" Binding="{Binding FilePath, Converter={StaticResource PathToFileNameConverter}}" Width="180"/>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.Line}" Binding="{Binding LineNumber}" Width="60"/>
+                                <DataGridTextColumn Header="{DynamicResource Str.Col.Snippet}" Binding="{Binding Snippet}" Width="*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </ui:Card>
+            </Grid>
         </Grid>
 
-        <Grid Grid.Row="4" Margin="0,8,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="240"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-            <ProgressBar Grid.Column="1" Height="14"
-                         Minimum="0" Maximum="1"
-                         Value="{Binding ProgressFraction}"
-                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
-        </Grid>
+        <ui:Card Grid.Row="2" Padding="12,8" Margin="16,0,16,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="280"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding StatusText}"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <ProgressBar Grid.Column="1" Height="6" Margin="8,0,0,0"
+                             VerticalAlignment="Center"
+                             Minimum="0" Maximum="1"
+                             Value="{Binding ProgressFraction}"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+            </Grid>
+        </ui:Card>
     </Grid>
-</Window>
+</ui:FluentWindow>

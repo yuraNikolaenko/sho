@@ -4,8 +4,9 @@
 
 - **.NET 9** (TFM `net9.0` для бібліотек, `net9.0-windows` для UI)
 - **WPF** + **WindowsForms** (для `FolderBrowserDialog`)
+- **WPF-UI** (Lepoco) — Fluent / Windows 11 design (FluentWindow, Mica, Card, NavigationView, ToggleSwitch, SymbolIcon)
 - **CommunityToolkit.Mvvm** (`ObservableObject`, `[RelayCommand]`)
-- **Lucene.NET 4.8** (індексний пошук)
+- **Lucene.NET 4.8** + `QueryParsers.Classic` (індексний пошук + парсер запитів)
 - **PdfPig** (PDF), **DocumentFormat.OpenXml** (DOCX/XLSX/PPTX)
 - **NPOI 2.5.6** (XLS через HSSF, OLE compound storage через POIFS для DOC)
 - **UTF.Unknown** (детект кодування), **System.Text.Encoding.CodePages** (CP1251 та інші)
@@ -99,10 +100,23 @@ Sho.Core ←─── Sho.Extractors ←─── Sho.Search ←─── Sho.Ap
 ## UI — [src/Sho.App/](../src/Sho.App/)
 
 - [`MainViewModel`](../src/Sho.App/ViewModels/MainViewModel.cs) — `ObservableObject` із `[RelayCommand]` для `SelectFolder`, `BuildIndex`, `DeleteIndex`, `Search`, `Cancel`. Тримає `CancellationTokenSource` під час операції, оновлює `IsBusy`/`StatusText`/`ProgressFraction` через `IProgress<IndexProgress>`.
-- [`MainWindow.xaml`](../src/Sho.App/MainWindow.xaml) — three-row layout: folder bar, search bar, options bar; результати в `Grid` з `GridSplitter` (DataGrid файлів | DataGrid рядків); статус-бар + прогрес-бар.
-- [`MainWindow.xaml.cs`](../src/Sho.App/MainWindow.xaml.cs) — мінімум code-behind: тільки `MouseDoubleClick` і `ContextMenu` handlers, які делегують до VM.
+- [`MainWindow.xaml`](../src/Sho.App/MainWindow.xaml) — `ui:FluentWindow` з Mica-фоном, `ui:TitleBar` із theme-toggle і language combo, секції в `ui:Card`, кнопки `ui:Button` зі `SymbolIcon`. Результати в `Grid` з `GridSplitter`. Усі рядки інтерфейсу — `{DynamicResource Str.*}`.
+- [`MainWindow.xaml.cs`](../src/Sho.App/MainWindow.xaml.cs) — наслідується від `Wpf.Ui.Controls.FluentWindow`. Мінімум code-behind: `MouseDoubleClick`, ContextMenu handlers, перемикач теми (`ApplicationThemeManager.Apply`) і мови (`LocalizationService.Apply`).
+- [`Services/SettingsService.cs`](../src/Sho.App/Services/SettingsService.cs) — JSON-серіалізація `AppSettings { Theme, Language, LastFolder }` у `%LOCALAPPDATA%\sho\settings.json`.
+- [`Services/LocalizationService.cs`](../src/Sho.App/Services/LocalizationService.cs) — підключає `Resources/Strings.<lang>.xaml` як merged dictionary; `{DynamicResource}`-біндіг автоматично перебирається на нову мову.
+- [`Resources/Strings.uk.xaml`](../src/Sho.App/Resources/Strings.uk.xaml), [`Strings.en.xaml`](../src/Sho.App/Resources/Strings.en.xaml) — пара `ResourceDictionary` зі стрічками.
 - [`Converters.cs`](../src/Sho.App/Converters/Converters.cs) — bool→Visibility, path→FileName, bool→Brush, bool→текст статусу індексу.
 - [`Usings.cs`](../src/Sho.App/Usings.cs) — глобальні аліаси (Application/MessageBox/Clipboard/Brushes/Binding) щоб уникнути `CS0104` між WPF і WinForms.
+
+## Як додати нову мову
+
+1. Скопіюй [Strings.uk.xaml](../src/Sho.App/Resources/Strings.uk.xaml) → `Strings.<lang>.xaml`, переклади значення.
+2. Додай код у [`LocalizationService.AvailableLanguages`](../src/Sho.App/Services/LocalizationService.cs) і `<ComboBoxItem Tag="<lang>">` в [`MainWindow.xaml`](../src/Sho.App/MainWindow.xaml).
+3. Все. Жодних code-змін у форматуванні строк не треба — `{DynamicResource}` робить hot-swap.
+
+## Прогрес-репортинг
+
+`IndexProgress` ([Sho.Core](../src/Sho.Core/Models/IndexProgress.cs)) тепер містить `ElapsedMs`. Двигуни рапортують **перед** обробкою кожного файлу (не раз на 16). VM ([MainViewModel](../src/Sho.App/ViewModels/MainViewModel.cs)) тримає `DispatcherTimer` 500 мс, який оновлює статус навіть коли двигун не звітує (наприклад, велике PDF: ти бачиш `(45s on this file)` що росте). Формат статусу: `Stage N/Total (P.P%) · F.F f/s · ETA Xm00s · file.pdf (XXs on this file)`.
 
 ## Збірка та запуск
 
