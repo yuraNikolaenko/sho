@@ -23,6 +23,8 @@
         <Style x:Key="ResultsDataGrid" TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Top"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="RowBackground" Value="Transparent"/>
             <Setter Property="AlternatingRowBackground" Value="Transparent"/>
@@ -130,7 +132,24 @@
                      ShowMaximize="True" ShowMinimize="True">
             <ui:TitleBar.TrailingContent>
                 <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
-                    <ToggleButton Margin="4,0" Padding="8,2" VerticalAlignment="Center"
+                    <StackPanel.Resources>
+                        <Style x:Key="TitleBarToggle" TargetType="ToggleButton">
+                            <Setter Property="MinWidth" Value="80"/>
+                            <Setter Property="Height" Value="32"/>
+                            <Setter Property="Padding" Value="10,4"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="Margin" Value="4,0"/>
+                        </Style>
+                        <Style x:Key="TitleBarButton" TargetType="ui:Button">
+                            <Setter Property="MinWidth" Value="80"/>
+                            <Setter Property="Height" Value="32"/>
+                            <Setter Property="Padding" Value="10,4"/>
+                            <Setter Property="VerticalAlignment" Value="Center"/>
+                            <Setter Property="Margin" Value="4,0"/>
+                        </Style>
+                    </StackPanel.Resources>
+
+                    <ToggleButton Style="{StaticResource TitleBarToggle}"
                                   IsChecked="{Binding ShowPreview, Mode=TwoWay}"
                                   ToolTip="{DynamicResource Str.PreviewToggleTooltip}">
                         <StackPanel Orientation="Horizontal">
@@ -138,16 +157,22 @@
                             <TextBlock Text="{DynamicResource Str.Preview}" Margin="6,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </ToggleButton>
-                    <ComboBox x:Name="LanguageCombo" Width="90" Margin="8,0,4,0"
-                              SelectionChanged="LanguageCombo_SelectionChanged"
-                              ToolTip="{DynamicResource Str.Language}">
-                        <ComboBoxItem Content="Українська" Tag="uk"/>
-                        <ComboBoxItem Content="English" Tag="en"/>
-                    </ComboBox>
-                    <ui:Button x:Name="ThemeButton" Margin="4,0"
+
+                    <ui:Button x:Name="LanguageButton" Style="{StaticResource TitleBarButton}"
+                               Click="LanguageButton_Click"
+                               ToolTip="{DynamicResource Str.Language}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="LocalLanguage24"/>
+                            <TextBlock x:Name="LanguageLabel" Text="UA" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ui:Button>
+
+                    <ui:Button x:Name="ThemeButton" Style="{StaticResource TitleBarButton}"
                                Icon="{ui:SymbolIcon WeatherMoon24}"
-                               ToolTip="{DynamicResource Str.Theme}"
-                               Click="ThemeButton_Click"/>
+                               Click="ThemeButton_Click"
+                               ToolTip="{DynamicResource Str.Theme}">
+                        <TextBlock Text="{DynamicResource Str.Theme}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </ui:Button>
                 </StackPanel>
             </ui:TitleBar.TrailingContent>
         </ui:TitleBar>
@@ -275,6 +300,9 @@
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.File}" Binding="{Binding FileName}" Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.Hits}" Binding="{Binding HitCount}" Width="60"/>
+                            <DataGridTextColumn Header="{DynamicResource Str.Col.Modified}"
+                                                Binding="{Binding ModifiedUtc, StringFormat=\{0:yyyy-MM-dd HH:mm\}}"
+                                                Width="120" SortDirection="Ascending"/>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.Path}" Binding="{Binding FilePath}" Width="2*">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">

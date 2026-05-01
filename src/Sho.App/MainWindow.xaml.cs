@@ -30,16 +30,14 @@ public partial class MainWindow : FluentWindow
     {
         Vm.ShowPreview = App.Settings.ShowPreview;
         Vm.SetDarkTheme(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
+
+        if (!string.IsNullOrEmpty(App.Settings.LastFolder) && Directory.Exists(App.Settings.LastFolder))
+            Vm.FolderPath = App.Settings.LastFolder;
+
         Vm.PropertyChanged += OnVmPropertyChanged;
 
-        var lang = App.Settings.Language;
-        foreach (ComboBoxItem item in LanguageCombo.Items)
-        {
-            if ((item.Tag as string) == lang) { LanguageCombo.SelectedItem = item; break; }
-        }
-        if (LanguageCombo.SelectedItem == null) LanguageCombo.SelectedIndex = 0;
-
         UpdateThemeIcon();
+        UpdateLanguageLabel();
 
         if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
@@ -54,9 +52,14 @@ public partial class MainWindow : FluentWindow
             App.SettingsService.Save(App.Settings);
             if (Vm.ShowPreview) await EnsureWebViewAsync();
         }
-        else if (e.PropertyName == nameof(MainViewModel.PreviewHtml))
+        else if (e.PropertyName == nameof(MainViewModel.PreviewFilePath))
         {
-            await NavigatePreviewAsync(Vm.PreviewHtml);
+            NavigatePreview(Vm.PreviewFilePath);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.FolderPath))
+        {
+            App.Settings.LastFolder = Vm.FolderPath;
+            App.SettingsService.Save(App.Settings);
         }
     }
 
@@ -76,10 +79,11 @@ public partial class MainWindow : FluentWindow
             PreviewWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
             PreviewWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             PreviewWebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
+            PreviewWebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(30, 30, 30);
             _webViewInitialized = true;
             PreviewError.Visibility = Visibility.Collapsed;
-            if (!string.IsNullOrEmpty(Vm.PreviewHtml))
-                PreviewWebView.NavigateToString(Vm.PreviewHtml);
+
+            NavigatePreview(Vm.PreviewFilePath);
         }
         catch (System.Exception ex)
         {
@@ -98,16 +102,22 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private async System.Threading.Tasks.Task NavigatePreviewAsync(string? html)
+    private void NavigatePreview(string? filePath)
     {
         if (!_webViewInitialized) return;
-        if (string.IsNullOrEmpty(html))
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
         {
-            PreviewWebView.NavigateToString("<html><body></body></html>");
+            PreviewWebView.NavigateToString("<html><body style='background:#1e1e1e'></body></html>");
             return;
         }
-        PreviewWebView.NavigateToString(html);
-        await System.Threading.Tasks.Task.CompletedTask;
+        try
+        {
+            PreviewWebView.Source = new System.Uri(filePath);
+        }
+        catch (System.Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Preview navigation failed: " + ex);
+        }
     }
 
     private void FilesGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -167,16 +177,18 @@ public partial class MainWindow : FluentWindow
         ThemeButton.Icon = new SymbolIcon { Symbol = icon };
     }
 
-    private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void LanguageButton_Click(object sender, RoutedEventArgs e)
     {
-        if (LanguageCombo.SelectedItem is ComboBoxItem item && item.Tag is string lang)
-        {
-            if (lang != App.Settings.Language || lang != LocalizationService.CurrentLanguage)
-            {
-                LocalizationService.Apply(lang);
-                App.Settings.Language = lang;
-                App.SettingsService.Save(App.Settings);
-            }
-        }
+        var current = LocalizationService.CurrentLanguage;
+        var next = current == "uk" ? "en" : "uk";
+        LocalizationService.Apply(next);
+        App.Settings.Language = next;
+        App.SettingsService.Save(App.Settings);
+        UpdateLanguageLabel();
+    }
+
+    private void UpdateLanguageLabel()
+    {
+        LanguageLabel.Text = LocalizationService.CurrentLanguage == "uk" ? "UA" : "EN";
     }
 }

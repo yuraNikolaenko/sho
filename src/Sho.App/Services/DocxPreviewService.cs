@@ -10,38 +10,77 @@ public sealed class DocxPreviewService
 {
     private readonly ConcurrentDictionary<string, CachedDoc> _cache = new();
     private readonly DocumentConverter _converter = new();
+    private readonly string _previewDir;
 
     private sealed record CachedDoc(string BodyHtml, DateTime FileMtimeUtc);
 
-    public bool IsSupported(string filePath) =>
+    public DocxPreviewService()
+    {
+        _previewDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "sho", "preview");
+        Directory.CreateDirectory(_previewDir);
+    }
+
+    public bool IsSupported(string? filePath) =>
         !string.IsNullOrEmpty(filePath)
         && string.Equals(Path.GetExtension(filePath), ".docx", StringComparison.OrdinalIgnoreCase);
 
-    public string Render(string filePath, IEnumerable<string> highlightTerms, bool darkTheme, int? scrollToLineNumber = null)
-    {
-        if (!IsSupported(filePath))
-            return WrapHtml("<p style='opacity:0.6'>Preview is available only for .docx files.</p>", Array.Empty<string>(), darkTheme, null);
-
-        if (!File.Exists(filePath))
-            return WrapHtml("<p style='opacity:0.6'>File not found.</p>", Array.Empty<string>(), darkTheme, null);
-
-        var fi = new FileInfo(filePath);
-        var bodyHtml = _cache.TryGetValue(filePath, out var cached) && cached.FileMtimeUtc == fi.LastWriteTimeUtc
-            ? cached.BodyHtml
-            : ConvertAndCache(filePath, fi);
-
-        var terms = highlightTerms?.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList() ?? new();
-        return WrapHtml(bodyHtml, terms, darkTheme, scrollToLineNumber);
-    }
-
     public void ClearCache() => _cache.Clear();
+
+    /// <summary>
+    /// Render the requested file (or a placeholder) into a stand-alone HTML file under
+    /// %LOCALAPPDATA%\sho\preview\ and return its absolute path. Always returns a path so
+    /// the caller can navigate the WebView to file:// without size limits.
+    /// </summary>
+    public string Render(string? filePath, IEnumerable<string>? highlightTerms, bool darkTheme, int? scrollToLineNumber = null)
+    {
+        string html;
+        string key;
+
+        if (string.IsNullOrEmpty(filePath))
+        {
+            html = WrapHtml("<p style='opacity:0.6'>Select a line or a file to preview.</p>",
+                Array.Empty<string>(), darkTheme);
+            key = "empty";
+        }
+        else if (!IsSupported(filePath))
+        {
+            html = WrapHtml("<p style='opacity:0.6'>Preview is available only for .docx files.</p>",
+                Array.Empty<string>(), darkTheme);
+            key = "notsupported";
+        }
+        else if (!File.Exists(filePath))
+        {
+            html = WrapHtml("<p style='opacity:0.6'>File not found.</p>",
+                Array.Empty<string>(), darkTheme);
+            key = "missing";
+        }
+        else
+        {
+            var fi = new FileInfo(filePath);
+            var bodyHtml = _cache.TryGetValue(filePath, out var cached) && cached.FileMtimeUtc == fi.LastWriteTimeUtc
+                ? cached.BodyHtml
+                : ConvertAndCache(filePath, fi);
+            var terms = (highlightTerms ?? Array.Empty<string>())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .ToList();
+            html = WrapHtml(bodyHtml, terms, darkTheme);
+            key = Sho.Core.IO.PathHasher.Hash(filePath);
+        }
+
+        var outPath = Path.Combine(_previewDir, $"{key}.html");
+        File.WriteAllText(outPath, html, new UTF8Encoding(false));
+        return outPath;
+    }
 
     private string ConvertAndCache(string filePath, FileInfo fi)
     {
         try
         {
             var result = _converter.ConvertToHtml(filePath);
-            var html = result.Value ?? "";
+            var html = result.Value ?? string.Empty;
             _cache[filePath] = new CachedDoc(html, fi.LastWriteTimeUtc);
             return html;
         }
@@ -51,13 +90,13 @@ public sealed class DocxPreviewService
         }
     }
 
-    private static string WrapHtml(string body, IReadOnlyList<string> terms, bool darkTheme, int? lineHint)
+    private static string WrapHtml(string body, IReadOnlyList<string> terms, bool darkTheme)
     {
         string bg = darkTheme ? "#1e1e1e" : "#ffffff";
         string fg = darkTheme ? "#e8e8e8" : "#1f1f1f";
         string accent = darkTheme ? "#3a3a3a" : "#e0e0e0";
-        string markBg = "#ffd54f";
-        string markFg = "#1a1a1a";
+        const string markBg = "#ffd54f";
+        const string markFg = "#1a1a1a";
 
         var termsJson = JsonSerializer.Serialize(terms);
         var sb = new StringBuilder();
@@ -73,8 +112,7 @@ public sealed class DocxPreviewService
           .Append($"mark{{background:{markBg};color:{markFg};padding:0 2px;border-radius:2px}}")
           .Append($"mark.current{{outline:2px solid {markBg};outline-offset:2px}}")
           .Append("a{color:#4ea1ff}")
-          .Append("</style>")
-          .Append("</head><body>")
+          .Append("</style></head><body>")
           .Append(body)
           .Append("<script>(function(){")
           .Append("const terms=").Append(termsJson).Append(";")

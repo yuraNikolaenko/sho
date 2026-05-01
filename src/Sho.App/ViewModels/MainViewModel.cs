@@ -39,8 +39,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isLinesFiltered;
     [ObservableProperty] private SearchHit? _selectedHit;
     [ObservableProperty] private bool _showPreview;
-    [ObservableProperty] private string? _previewHtml;
-    [ObservableProperty] private bool _isPreviewSupported;
+    [ObservableProperty] private string? _previewFilePath;
     public DocxPreviewService PreviewService { get; } = new();
 
     private readonly DispatcherTimer _heartbeat = new() { Interval = TimeSpan.FromMilliseconds(500) };
@@ -78,27 +77,16 @@ public partial class MainViewModel : ObservableObject
     {
         if (!ShowPreview)
         {
-            IsPreviewSupported = false;
-            PreviewHtml = null;
+            PreviewFilePath = null;
             return;
         }
 
         var path = SelectedHit?.FilePath ?? SelectedFile?.FilePath;
-        if (string.IsNullOrEmpty(path))
-        {
-            IsPreviewSupported = false;
-            PreviewHtml = "<html><body style='background:#1e1e1e;color:#888;font-family:Segoe UI;padding:20px'>" +
-                          "Select a line or a file to preview." +
-                          "</body></html>";
-            return;
-        }
-
-        IsPreviewSupported = PreviewService.IsSupported(path);
         var terms = (CurrentMatcherTermsHint ?? QueryText)
             .Split(new[] { ' ', '\t', '\r', '\n', '"', '+', '-', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
             .Where(t => t.Length > 1 && !IsLuceneKeyword(t))
             .ToList();
-        PreviewHtml = PreviewService.Render(path, terms, _previewDarkTheme, SelectedHit?.LineNumber);
+        PreviewFilePath = PreviewService.Render(path, terms, _previewDarkTheme, SelectedHit?.LineNumber);
     }
 
     private static bool IsLuceneKeyword(string s) =>
@@ -234,7 +222,7 @@ public partial class MainViewModel : ObservableObject
             PreviewService.ClearCache();
             Files.Clear();
             Lines.Clear();
-            foreach (var f in result.Files) Files.Add(f);
+            foreach (var f in result.Files.OrderBy(f => f.ModifiedUtc)) Files.Add(f);
             foreach (var l in result.Lines) Lines.Add(l);
             RefreshPreview();
             if (!string.IsNullOrEmpty(result.Error))
