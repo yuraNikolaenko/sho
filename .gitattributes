@@ -1,0 +1,27 @@
+# Normalize line endings on commit; check out native on Windows
+* text=auto eol=crlf
+
+# Source: always LF in repo, native on checkout
+*.cs       text eol=crlf
+*.xaml     text eol=crlf
+*.csproj   text eol=crlf
+*.sln      text eol=crlf
+*.json     text eol=lf
+*.md       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+
+# Binary
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.pdf      binary
+*.docx     binary
+*.xlsx     binary
+*.pptx     binary
+*.doc      binary
+*.xls      binary
+*.zip      binary
+*.7z       binary

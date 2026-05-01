@@ -1,0 +1,91 @@
+# ---------- .NET / Visual Studio ----------
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebugPublic/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Ll]og/
+[Ll]ogs/
+
+# Build & restore artifacts
+project.lock.json
+project.fragment.lock.json
+artifacts/
+*.binlog
+*.tlog
+*.cache
+*.vspscc
+*.vssscc
+
+# Visual Studio / Rider
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+
+# Single-file publish output
+publish/
+*.appx
+*.appxbundle
+*.msi
+*.msix
+*.msixbundle
+
+# NuGet
+*.nupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+
+# Test results & coverage
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage/
+*.trx
+
+# Tooling caches
+.fake/
+.dotnet/
+
+# ---------- WPF / app artifacts ----------
+*.pdb
+*.exe
+*.dll
+
+# ---------- Sho-specific ----------
+# Local Lucene index location is under %LOCALAPPDATA%\sho\indexes — outside repo,
+# but keep this in case anyone redirects it under repo:
+indexes/
+
+# ---------- OS ----------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+$RECYCLE.BIN/
+
+# ---------- Editor swap/temp ----------
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej

@@ -1,0 +1,133 @@
+<Window x:Class="Sho.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Sho.App.ViewModels"
+        xmlns:conv="clr-namespace:Sho.App.Converters"
+        Title="sho — fast document search" Height="720" Width="1200"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:PathToFileNameConverter x:Key="PathToFileNameConverter"/>
+        <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+        <conv:BoolToIndexStatusConverter x:Key="BoolToIndexStatusConverter"/>
+    </Window.Resources>
+    <Window.DataContext>
+        <vm:MainViewModel/>
+    </Window.DataContext>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,6" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="Browse…" Padding="12,4" Margin="6,0,0,0"
+                    Command="{Binding SelectFolderCommand}"/>
+            <TextBlock DockPanel.Dock="Left" Text="Folder:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Text="{Binding FolderPath, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalContentAlignment="Center" Padding="6,4"/>
+        </DockPanel>
+
+        <DockPanel Grid.Row="1" Margin="0,0,0,6" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Content="Search" Padding="16,4" Margin="6,0,0,0"
+                    Command="{Binding SearchCommand}" IsDefault="True"/>
+            <TextBlock DockPanel.Dock="Left" Text="Find:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalContentAlignment="Center" Padding="6,4" FontSize="14"/>
+        </DockPanel>
+
+        <DockPanel Grid.Row="2" Margin="0,0,0,8" LastChildFill="False">
+            <CheckBox DockPanel.Dock="Left" Content="Use index"
+                      IsChecked="{Binding UseIndex}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox DockPanel.Dock="Left" Content="Match case"
+                      IsChecked="{Binding CaseSensitive}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox DockPanel.Dock="Left" Content="Whole word"
+                      IsChecked="{Binding WholeWord}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
+                       Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"
+                       Text="{Binding IndexExists, Converter={StaticResource BoolToIndexStatusConverter}}"/>
+
+            <Button DockPanel.Dock="Right" Content="Cancel" Padding="10,4" Margin="6,0,0,0"
+                    Command="{Binding CancelCommand}"/>
+            <Button DockPanel.Dock="Right" Content="Delete index" Padding="10,4" Margin="6,0,0,0"
+                    Command="{Binding DeleteIndexCommand}"/>
+            <Button DockPanel.Dock="Right" Content="Build / rebuild index" Padding="10,4" Margin="6,0,0,0"
+                    Command="{Binding BuildIndexCommand}"/>
+        </DockPanel>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="280"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="2*" MinWidth="400"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="Files (matches)">
+                <DataGrid ItemsSource="{Binding Files}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          MouseDoubleClick="FilesGrid_MouseDoubleClick"
+                          Name="FilesGrid">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Open" Click="MenuOpen_Click"/>
+                            <MenuItem Header="Reveal in Explorer" Click="MenuReveal_Click"/>
+                            <MenuItem Header="Copy path" Click="MenuCopyPath_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="*"/>
+                        <DataGridTextColumn Header="Hits" Binding="{Binding HitCount}" Width="60"/>
+                        <DataGridTextColumn Header="Ext" Binding="{Binding Extension}" Width="60"/>
+                        <DataGridTextColumn Header="Modified (UTC)" Binding="{Binding ModifiedUtc, StringFormat=\{0:yyyy-MM-dd HH:mm\}}" Width="130"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" Background="#E0E0E0"/>
+
+            <GroupBox Grid.Column="2" Header="Lines (context)">
+                <DataGrid ItemsSource="{Binding Lines}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          SelectionMode="Single"
+                          GridLinesVisibility="Horizontal"
+                          HeadersVisibility="Column"
+                          RowHeight="22"
+                          MouseDoubleClick="LinesGrid_MouseDoubleClick"
+                          Name="LinesGrid">
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Open" Click="MenuLineOpen_Click"/>
+                            <MenuItem Header="Reveal in Explorer" Click="MenuLineReveal_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="File" Binding="{Binding FilePath, Converter={StaticResource PathToFileNameConverter}}" Width="180"/>
+                        <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="60"/>
+                        <DataGridTextColumn Header="Snippet" Binding="{Binding Snippet}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </GroupBox>
+        </Grid>
+
+        <Grid Grid.Row="4" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="240"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding StatusText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+            <ProgressBar Grid.Column="1" Height="14"
+                         Minimum="0" Maximum="1"
+                         Value="{Binding ProgressFraction}"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </Grid>
+    </Grid>
+</Window>
