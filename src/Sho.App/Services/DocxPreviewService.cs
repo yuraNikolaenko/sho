@@ -22,6 +22,8 @@ public sealed class DocxPreviewService
         Directory.CreateDirectory(_previewDir);
     }
 
+    public string PreviewDirectory => _previewDir;
+
     public bool IsSupported(string? filePath) =>
         !string.IsNullOrEmpty(filePath)
         && string.Equals(Path.GetExtension(filePath), ".docx", StringComparison.OrdinalIgnoreCase);

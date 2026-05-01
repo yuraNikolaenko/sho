@@ -133,46 +133,33 @@
             <ui:TitleBar.TrailingContent>
                 <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
                     <StackPanel.Resources>
-                        <Style x:Key="TitleBarToggle" TargetType="ToggleButton">
-                            <Setter Property="MinWidth" Value="80"/>
+                        <Style x:Key="TitleBarButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="MinWidth" Value="90"/>
                             <Setter Property="Height" Value="32"/>
                             <Setter Property="Padding" Value="10,4"/>
                             <Setter Property="VerticalAlignment" Value="Center"/>
                             <Setter Property="Margin" Value="4,0"/>
-                        </Style>
-                        <Style x:Key="TitleBarButton" TargetType="ui:Button">
-                            <Setter Property="MinWidth" Value="80"/>
-                            <Setter Property="Height" Value="32"/>
-                            <Setter Property="Padding" Value="10,4"/>
-                            <Setter Property="VerticalAlignment" Value="Center"/>
-                            <Setter Property="Margin" Value="4,0"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Center"/>
                         </Style>
                     </StackPanel.Resources>
 
-                    <ToggleButton Style="{StaticResource TitleBarToggle}"
-                                  IsChecked="{Binding ShowPreview, Mode=TwoWay}"
-                                  ToolTip="{DynamicResource Str.PreviewToggleTooltip}">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="DocumentSearch24"/>
-                            <TextBlock Text="{DynamicResource Str.Preview}" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </ToggleButton>
+                    <ui:Button x:Name="PreviewButton" Style="{StaticResource TitleBarButton}"
+                               Click="PreviewButton_Click"
+                               ToolTip="{DynamicResource Str.PreviewToggleTooltip}"
+                               Content="{DynamicResource Str.Preview}"
+                               Icon="{ui:SymbolIcon Eye24}"/>
 
                     <ui:Button x:Name="LanguageButton" Style="{StaticResource TitleBarButton}"
                                Click="LanguageButton_Click"
                                ToolTip="{DynamicResource Str.Language}">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="LocalLanguage24"/>
-                            <TextBlock x:Name="LanguageLabel" Text="UA" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                        </StackPanel>
+                        <TextBlock x:Name="LanguageLabel" Text="UA" FontWeight="SemiBold"/>
                     </ui:Button>
 
                     <ui:Button x:Name="ThemeButton" Style="{StaticResource TitleBarButton}"
                                Icon="{ui:SymbolIcon WeatherMoon24}"
                                Click="ThemeButton_Click"
-                               ToolTip="{DynamicResource Str.Theme}">
-                        <TextBlock Text="{DynamicResource Str.Theme}" Margin="6,0,0,0" VerticalAlignment="Center"/>
-                    </ui:Button>
+                               ToolTip="{DynamicResource Str.Theme}"
+                               Content="{DynamicResource Str.Theme}"/>
                 </StackPanel>
             </ui:TitleBar.TrailingContent>
         </ui:TitleBar>
@@ -266,16 +253,12 @@
                 <ColumnDefinition Width="2*" MinWidth="420"/>
             </Grid.ColumnDefinitions>
 
-            <ui:Card Grid.Column="0" Padding="0">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Margin="10,6" FontWeight="SemiBold"
+            <ui:Card Grid.Column="0" Padding="0"
+                     VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <DockPanel LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Top" Margin="10,6" FontWeight="SemiBold"
                                Text="{DynamicResource Str.FilesGroup}"/>
-                    <DataGrid Grid.Row="1"
-                              Style="{StaticResource ResultsDataGrid}"
+                    <DataGrid Style="{StaticResource ResultsDataGrid}"
                               ItemsSource="{Binding Files}"
                               SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
                               MouseDoubleClick="FilesGrid_MouseDoubleClick"
@@ -314,7 +297,7 @@
                             </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
-                </Grid>
+                </DockPanel>
             </ui:Card>
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent"/>
@@ -326,16 +309,12 @@
                     <RowDefinition Height="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='2*|0'}"/>
                 </Grid.RowDefinitions>
 
-                <ui:Card Grid.Row="0" Padding="0">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Margin="10,6" FontWeight="SemiBold"
+                <ui:Card Grid.Row="0" Padding="0"
+                         VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Top" Margin="10,6" FontWeight="SemiBold"
                                    Text="{DynamicResource Str.LinesGroup}"/>
-                        <DataGrid Grid.Row="1"
-                                  Style="{StaticResource LinesDataGrid}"
+                        <DataGrid Style="{StaticResource LinesDataGrid}"
                                   ItemsSource="{Binding Lines}"
                                   SelectedItem="{Binding SelectedHit, Mode=TwoWay}"
                                   RowHeight="22"
@@ -353,7 +332,7 @@
                                 <DataGridTextColumn Header="{DynamicResource Str.Col.Snippet}" Binding="{Binding Snippet}" Width="*"/>
                             </DataGrid.Columns>
                         </DataGrid>
-                    </Grid>
+                    </DockPanel>
                 </ui:Card>
 
                 <GridSplitter Grid.Row="1" Height="6"
@@ -362,13 +341,10 @@
                               Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 <ui:Card Grid.Row="2" Padding="0"
+                         VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch"
                          Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <DockPanel Grid.Row="0" Margin="10,6">
+                    <DockPanel LastChildFill="True">
+                        <DockPanel DockPanel.Dock="Top" Margin="10,6">
                             <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold"
                                        Text="{DynamicResource Str.PreviewGroup}"/>
                             <TextBlock DockPanel.Dock="Left" Margin="8,0,0,0" Opacity="0.6" FontSize="11"
@@ -376,14 +352,14 @@
                                        Text="{Binding SelectedHit.FilePath, Converter={StaticResource PathToFileNameConverter}, FallbackValue=''}"
                                        TextTrimming="CharacterEllipsis"/>
                         </DockPanel>
-                        <Grid Grid.Row="1">
+                        <Grid>
                             <wv2:WebView2 Name="PreviewWebView"/>
                             <TextBlock x:Name="PreviewError" Visibility="Collapsed"
                                        Margin="20" TextWrapping="Wrap"
                                        Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                                        FontFamily="Segoe UI" FontSize="13"/>
                         </Grid>
-                    </Grid>
+                    </DockPanel>
                 </ui:Card>
             </Grid>
         </Grid>

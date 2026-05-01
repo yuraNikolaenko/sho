@@ -38,6 +38,7 @@ public partial class MainWindow : FluentWindow
 
         UpdateThemeIcon();
         UpdateLanguageLabel();
+        UpdatePreviewButton();
 
         if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
@@ -80,6 +81,25 @@ public partial class MainWindow : FluentWindow
             PreviewWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             PreviewWebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
             PreviewWebView.DefaultBackgroundColor = System.Drawing.Color.FromArgb(30, 30, 30);
+
+            PreviewWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                "sho-preview",
+                Vm.PreviewService.PreviewDirectory,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+
+            PreviewWebView.CoreWebView2.NavigationCompleted += (_, args) =>
+            {
+                if (!args.IsSuccess)
+                {
+                    PreviewError.Visibility = Visibility.Visible;
+                    PreviewError.Text = $"Preview navigation failed: {args.WebErrorStatus}";
+                }
+                else
+                {
+                    PreviewError.Visibility = Visibility.Collapsed;
+                }
+            };
+
             _webViewInitialized = true;
             PreviewError.Visibility = Visibility.Collapsed;
 
@@ -107,16 +127,19 @@ public partial class MainWindow : FluentWindow
         if (!_webViewInitialized) return;
         if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
         {
-            PreviewWebView.NavigateToString("<html><body style='background:#1e1e1e'></body></html>");
+            PreviewWebView.CoreWebView2.NavigateToString("<html><body style='background:#1e1e1e'></body></html>");
             return;
         }
         try
         {
-            PreviewWebView.Source = new System.Uri(filePath);
+            var fileName = Path.GetFileName(filePath);
+            PreviewWebView.CoreWebView2.Navigate($"https://sho-preview/{fileName}");
         }
         catch (System.Exception ex)
         {
             System.Diagnostics.Debug.WriteLine("Preview navigation failed: " + ex);
+            PreviewError.Visibility = Visibility.Visible;
+            PreviewError.Text = "Preview navigation error: " + ex.Message;
         }
     }
 
@@ -175,6 +198,24 @@ public partial class MainWindow : FluentWindow
             ? SymbolRegular.WeatherSunny24
             : SymbolRegular.WeatherMoon24;
         ThemeButton.Icon = new SymbolIcon { Symbol = icon };
+    }
+
+    private async void PreviewButton_Click(object sender, RoutedEventArgs e)
+    {
+        Vm.ShowPreview = !Vm.ShowPreview;
+        UpdatePreviewButton();
+        if (Vm.ShowPreview) await EnsureWebViewAsync();
+    }
+
+    private void UpdatePreviewButton()
+    {
+        PreviewButton.Appearance = Vm.ShowPreview
+            ? Wpf.Ui.Controls.ControlAppearance.Primary
+            : Wpf.Ui.Controls.ControlAppearance.Secondary;
+        PreviewButton.Icon = new SymbolIcon
+        {
+            Symbol = Vm.ShowPreview ? SymbolRegular.Eye24 : SymbolRegular.EyeOff24
+        };
     }
 
     private void LanguageButton_Click(object sender, RoutedEventArgs e)
