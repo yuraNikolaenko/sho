@@ -89,15 +89,19 @@ public partial class MainWindow : FluentWindow
 
             PreviewWebView.CoreWebView2.NavigationCompleted += (_, args) =>
             {
-                if (!args.IsSuccess)
-                {
-                    PreviewError.Visibility = Visibility.Visible;
-                    PreviewError.Text = $"Preview navigation failed: {args.WebErrorStatus}";
-                }
-                else
+                if (args.IsSuccess)
                 {
                     PreviewError.Visibility = Visibility.Collapsed;
+                    return;
                 }
+                var status = args.WebErrorStatus;
+                if (status == Microsoft.Web.WebView2.Core.CoreWebView2WebErrorStatus.OperationCanceled
+                    || status == Microsoft.Web.WebView2.Core.CoreWebView2WebErrorStatus.ConnectionAborted)
+                {
+                    return;
+                }
+                PreviewError.Visibility = Visibility.Visible;
+                PreviewError.Text = $"Preview navigation failed: {status}";
             };
 
             _webViewInitialized = true;
@@ -133,7 +137,9 @@ public partial class MainWindow : FluentWindow
         try
         {
             var fileName = Path.GetFileName(filePath);
-            PreviewWebView.CoreWebView2.Navigate($"https://sho-preview/{fileName}");
+            // Timestamp param defeats any caching so the latest highlighted HTML is fetched
+            var url = $"https://sho-preview/{fileName}?t={System.DateTime.UtcNow.Ticks}";
+            PreviewWebView.CoreWebView2.Navigate(url);
         }
         catch (System.Exception ex)
         {
