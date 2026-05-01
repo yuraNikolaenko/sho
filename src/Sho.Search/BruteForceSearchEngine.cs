@@ -19,14 +19,18 @@ public sealed class BruteForceSearchEngine : ISearchEngine
     public string Name => "Brute-force";
 
     public async Task<SearchResult> SearchAsync(
-        string rootFolder,
+        IReadOnlyList<string> rootFolders,
         SearchQuery query,
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        progress?.Report(new IndexProgress(0, 0, null, "Scanning folder", sw.ElapsedMilliseconds));
-        var docs = FileScanner.Enumerate(rootFolder, _registry.SupportedExtensions).ToList();
+        progress?.Report(new IndexProgress(0, 0, null, "Scanning folders", sw.ElapsedMilliseconds));
+        var roots = DedupeRoots(rootFolders);
+        var docs = roots.SelectMany(r => FileScanner.Enumerate(r, _registry.SupportedExtensions))
+                         .GroupBy(d => d.Path, StringComparer.OrdinalIgnoreCase)
+                         .Select(g => g.First())
+                         .ToList();
         int total = docs.Count;
         int done = 0;
         progress?.Report(new IndexProgress(0, total, null, "Scanning", sw.ElapsedMilliseconds));
@@ -117,5 +121,24 @@ public sealed class BruteForceSearchEngine : ISearchEngine
             TotalHits = totalHits,
             Elapsed = sw.Elapsed
         };
+    }
+
+    internal static List<string> DedupeRoots(IReadOnlyList<string> rootFolders)
+    {
+        var sorted = rootFolders
+            .Where(r => !string.IsNullOrWhiteSpace(r) && Directory.Exists(r))
+            .Select(r => Path.GetFullPath(r).TrimEnd('\\', '/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(r => r.Length)
+            .ToList();
+        var kept = new List<string>();
+        foreach (var r in sorted)
+        {
+            bool covered = kept.Any(k =>
+                r.Length > k.Length
+                && r.StartsWith(k + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+            if (!covered) kept.Add(r);
+        }
+        return kept;
     }
 }

@@ -7,7 +7,7 @@ public interface ISearchEngine
     string Name { get; }
 
     Task<SearchResult> SearchAsync(
-        string rootFolder,
+        IReadOnlyList<string> rootFolders,
         SearchQuery query,
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken);
@@ -16,11 +16,11 @@ public interface ISearchEngine
 public interface IIndexedSearchEngine : ISearchEngine
 {
     Task BuildIndexAsync(
-        string rootFolder,
+        IReadOnlyList<string> rootFolders,
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken);
 
-    Task<bool> IsIndexBuiltAsync(string rootFolder, CancellationToken cancellationToken);
+    Task<bool> IsIndexBuiltAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken);
 
-    Task DeleteIndexAsync(string rootFolder, CancellationToken cancellationToken);
+    Task DeleteIndexAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken);
 }

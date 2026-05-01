@@ -1,0 +1,83 @@
+using System.Collections.ObjectModel;
+using System.IO;
+using CommunityToolkit.Mvvm.ComponentModel;
+
+namespace Sho.App.Views;
+
+public sealed partial class FolderTreeNode : ObservableObject
+{
+    public string Name { get; }
+    public string FullPath { get; }
+
+    public ObservableCollection<FolderTreeNode> Children { get; } = new();
+
+    [ObservableProperty] private bool _isChecked;
+    [ObservableProperty] private bool _isExpanded;
+
+    private bool _loaded;
+
+    public FolderTreeNode(string name, string fullPath, bool addPlaceholder = true)
+    {
+        Name = name;
+        FullPath = fullPath;
+        if (addPlaceholder)
+            Children.Add(new FolderTreeNode("…", string.Empty, addPlaceholder: false));
+    }
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        if (value && !_loaded) Load();
+    }
+
+    partial void OnIsCheckedChanged(bool value)
+    {
+        // Propagate to descendants only if children are already loaded —
+        // do not force-load (would block UI on huge subtrees).
+        if (_loaded)
+        {
+            foreach (var c in Children)
+                c.IsChecked = value;
+        }
+    }
+
+    private void Load()
+    {
+        Children.Clear();
+        if (string.IsNullOrEmpty(FullPath))
+        {
+            _loaded = true;
+            return;
+        }
+
+        try
+        {
+            foreach (var dir in Directory.EnumerateDirectories(FullPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var name = Path.GetFileName(dir);
+                if (string.IsNullOrEmpty(name)) continue;
+                if (name.StartsWith('$') || name.Equals("System Volume Information", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                bool hasSub;
+                try { hasSub = Directory.EnumerateDirectories(dir).Any(); }
+                catch { hasSub = false; }
+
+                var child = new FolderTreeNode(name, dir, addPlaceholder: hasSub)
+                {
+                    IsChecked = IsChecked
+                };
+                Children.Add(child);
+            }
+        }
+        catch { /* unauthorized / IO — leave empty */ }
+
+        _loaded = true;
+    }
+
+    public IEnumerable<FolderTreeNode> AllChecked()
+    {
+        if (IsChecked) yield return this;
+        foreach (var c in Children)
+            foreach (var n in c.AllChecked()) yield return n;
+    }
+}

@@ -40,7 +40,7 @@ public class SearchEngineTests : IDisposable
     public async Task Brute_force_finds_matches_in_subdirs()
     {
         var engine = new BruteForceSearchEngine();
-        var result = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
+        var result = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
         Assert.Null(result.Error);
         Assert.Equal(3, result.FilesMatched);
         Assert.Equal(4, result.TotalHits);
@@ -52,7 +52,7 @@ public class SearchEngineTests : IDisposable
     public async Task Brute_force_phrase_search()
     {
         var engine = new BruteForceSearchEngine();
-        var result = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенко Юрій"), null, CancellationToken.None);
+        var result = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("Ніколаенко Юрій"), null, CancellationToken.None);
         Assert.Equal(1, result.FilesMatched);
         Assert.Single(result.Lines);
     }
@@ -61,10 +61,10 @@ public class SearchEngineTests : IDisposable
     public async Task Indexed_build_and_search()
     {
         var engine = new IndexedSearchEngine(indexRoot: _indexDir);
-        await engine.BuildIndexAsync(_tmpDir, null, CancellationToken.None);
-        Assert.True(await engine.IsIndexBuiltAsync(_tmpDir, CancellationToken.None));
+        await engine.BuildIndexAsync(new[] { _tmpDir }, null, CancellationToken.None);
+        Assert.True(await engine.IsIndexBuiltAsync(new[] { _tmpDir }, CancellationToken.None));
 
-        var result = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
+        var result = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
         Assert.Null(result.Error);
         Assert.True(result.FilesMatched >= 3, $"expected ≥3, got {result.FilesMatched}");
         Assert.Contains(result.Files, f => f.FilePath.EndsWith("d.txt"));
@@ -74,14 +74,43 @@ public class SearchEngineTests : IDisposable
     public async Task Indexed_quoted_single_word_finds_inflected_form()
     {
         var engine = new IndexedSearchEngine(indexRoot: _indexDir);
-        await engine.BuildIndexAsync(_tmpDir, null, CancellationToken.None);
+        await engine.BuildIndexAsync(new[] { _tmpDir }, null, CancellationToken.None);
 
-        var bare = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенк"), null, CancellationToken.None);
-        var quoted = await engine.SearchAsync(_tmpDir, new SearchQuery("\"Ніколаенк\""), null, CancellationToken.None);
+        var bare = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("Ніколаенк"), null, CancellationToken.None);
+        var quoted = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("\"Ніколаенк\""), null, CancellationToken.None);
 
         Assert.True(quoted.FilesMatched > 0, "quoted partial term should match indexed inflected forms");
         Assert.Equal(bare.FilesMatched, quoted.FilesMatched);
         Assert.Equal(bare.TotalHits, quoted.TotalHits);
+    }
+
+    [Fact]
+    public async Task Multiple_roots_dedupe_and_aggregate()
+    {
+        var other = Path.Combine(Path.GetTempPath(), "sho-st-other-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(other);
+        try
+        {
+            File.WriteAllText(Path.Combine(other, "x.txt"),
+                "lone Ніколаенко match",
+                new UTF8Encoding(true));
+
+            var engine = new BruteForceSearchEngine();
+            var result = await engine.SearchAsync(
+                new[] { _tmpDir, Path.Combine(_tmpDir, "sub"), other },
+                new SearchQuery("Ніколаенко"),
+                null,
+                CancellationToken.None);
+
+            Assert.Null(result.Error);
+            // 3 hits in _tmpDir tree (a, c, sub/d) + 1 in other = 4 files / 5 hits
+            Assert.Equal(4, result.FilesMatched);
+            Assert.Contains(result.Files, f => f.FilePath.EndsWith("x.txt"));
+            Assert.Contains(result.Files, f => f.FilePath.EndsWith("d.txt"));
+            // sub/d.txt should appear ONCE despite both _tmpDir and _tmpDir/sub being passed
+            Assert.Equal(1, result.Files.Count(f => f.FilePath.EndsWith("d.txt")));
+        }
+        finally { try { Directory.Delete(other, true); } catch { } }
     }
 
     [Fact]
@@ -90,7 +119,7 @@ public class SearchEngineTests : IDisposable
         var freshIndex = Path.Combine(_tmpDir, "_index2");
         Directory.CreateDirectory(freshIndex);
         var engine = new IndexedSearchEngine(indexRoot: freshIndex);
-        var result = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
+        var result = await engine.SearchAsync(new[] { _tmpDir }, new SearchQuery("Ніколаенко"), null, CancellationToken.None);
         Assert.NotNull(result.Error);
         Assert.Empty(result.Files);
     }

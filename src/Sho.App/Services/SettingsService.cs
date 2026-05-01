@@ -8,6 +8,7 @@ public sealed class AppSettings
     public string Theme { get; set; } = "Dark";
     public string Language { get; set; } = "uk";
     public string? LastFolder { get; set; }
+    public List<string> LastFolders { get; set; } = new();
     public bool ShowPreview { get; set; } = true;
 }
 

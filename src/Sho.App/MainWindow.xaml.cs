@@ -31,14 +31,24 @@ public partial class MainWindow : FluentWindow
         Vm.ShowPreview = App.Settings.ShowPreview;
         Vm.SetDarkTheme(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
 
-        if (!string.IsNullOrEmpty(App.Settings.LastFolder) && Directory.Exists(App.Settings.LastFolder))
-            Vm.FolderPath = App.Settings.LastFolder;
+        var folders = App.Settings.LastFolders ?? new List<string>();
+        if (folders.Count == 0 && !string.IsNullOrEmpty(App.Settings.LastFolder))
+            folders = new List<string> { App.Settings.LastFolder };
+        foreach (var f in folders.Where(p => Directory.Exists(p)))
+            Vm.FolderPaths.Add(f);
+
+        Vm.FolderPaths.CollectionChanged += (_, _) =>
+        {
+            App.Settings.LastFolders = Vm.FolderPaths.ToList();
+            App.SettingsService.Save(App.Settings);
+        };
 
         Vm.PropertyChanged += OnVmPropertyChanged;
 
         UpdateThemeIcon();
         UpdateLanguageLabel();
         UpdatePreviewButton();
+        UpdatePreviewLayout();
 
         if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
@@ -57,10 +67,19 @@ public partial class MainWindow : FluentWindow
         {
             NavigatePreview(Vm.PreviewFilePath);
         }
-        else if (e.PropertyName == nameof(MainViewModel.FolderPath))
+    }
+
+    private void ChooseFoldersButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Sho.App.Views.FolderPickerWindow(Vm.FolderPaths.ToList())
         {
-            App.Settings.LastFolder = Vm.FolderPath;
-            App.SettingsService.Save(App.Settings);
+            Owner = this
+        };
+        if (dlg.ShowDialog() == true)
+        {
+            Vm.FolderPaths.Clear();
+            foreach (var p in dlg.SelectedPaths)
+                Vm.FolderPaths.Add(p);
         }
     }
 
@@ -210,7 +229,22 @@ public partial class MainWindow : FluentWindow
     {
         Vm.ShowPreview = !Vm.ShowPreview;
         UpdatePreviewButton();
+        UpdatePreviewLayout();
         if (Vm.ShowPreview) await EnsureWebViewAsync();
+    }
+
+    private void UpdatePreviewLayout()
+    {
+        if (Vm.ShowPreview)
+        {
+            PreviewSplitterRow.Height = GridLength.Auto;
+            PreviewRow.Height = new GridLength(3, GridUnitType.Star);
+        }
+        else
+        {
+            PreviewSplitterRow.Height = new GridLength(0);
+            PreviewRow.Height = new GridLength(0);
+        }
     }
 
     private void UpdatePreviewButton()

@@ -22,8 +22,9 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<FileSummary> Files { get; } = new();
     public ObservableCollection<SearchHit> Lines { get; } = new();
+    public ObservableCollection<string> FolderPaths { get; } = new();
 
-    [ObservableProperty] private string? _folderPath;
+    [ObservableProperty] private string _folderSummary = string.Empty;
     [ObservableProperty] private string _queryText = string.Empty;
     [ObservableProperty] private bool _caseSensitive;
     [ObservableProperty] private bool _wholeWord;
@@ -54,6 +55,19 @@ public partial class MainViewModel : ObservableObject
         _brute = new BruteForceSearchEngine(_registry);
         _indexed = new IndexedSearchEngine(_registry);
         _heartbeat.Tick += OnHeartbeat;
+        FolderPaths.CollectionChanged += (_, _) => OnFolderPathsChanged();
+    }
+
+    private void OnFolderPathsChanged()
+    {
+        FolderSummary = FolderPaths.Count switch
+        {
+            0 => string.Empty,
+            1 => Path.GetFileName(FolderPaths[0].TrimEnd('\\', '/'))
+                 + " (" + FolderPaths[0] + ")",
+            _ => $"{FolderPaths.Count} folders",
+        };
+        _ = RefreshIndexStateAsync();
     }
 
     partial void OnSelectedFileChanged(FileSummary? value)
@@ -146,42 +160,29 @@ public partial class MainViewModel : ObservableObject
         return $"{(int)t.TotalHours}h{t.Minutes:D2}m";
     }
 
-    partial void OnFolderPathChanged(string? value) => _ = RefreshIndexStateAsync();
+    public IReadOnlyList<string> SelectedRoots =>
+        FolderPaths.Where(p => !string.IsNullOrWhiteSpace(p) && Directory.Exists(p)).ToList();
 
     private async Task RefreshIndexStateAsync()
     {
-        if (string.IsNullOrWhiteSpace(FolderPath)) { IndexExists = false; return; }
-        try { IndexExists = await _indexed.IsIndexBuiltAsync(FolderPath, CancellationToken.None); }
+        var roots = SelectedRoots;
+        if (roots.Count == 0) { IndexExists = false; return; }
+        try { IndexExists = await _indexed.IsIndexBuiltAsync(roots, CancellationToken.None); }
         catch { IndexExists = false; }
-    }
-
-    [RelayCommand]
-    private void SelectFolder()
-    {
-        using var dlg = new System.Windows.Forms.FolderBrowserDialog
-        {
-            Description = "Select folder to search",
-            UseDescriptionForTitle = true,
-            ShowNewFolderButton = false
-        };
-        if (!string.IsNullOrWhiteSpace(FolderPath) && Directory.Exists(FolderPath))
-            dlg.SelectedPath = FolderPath;
-
-        if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            FolderPath = dlg.SelectedPath;
     }
 
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task BuildIndexAsync()
     {
-        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
+        var roots = SelectedRoots;
+        if (roots.Count == 0)
         {
-            StatusText = "Select a valid folder first";
+            StatusText = "Select at least one folder";
             return;
         }
         await RunAsync(async (progress, ct) =>
         {
-            await _indexed.BuildIndexAsync(FolderPath!, progress, ct);
+            await _indexed.BuildIndexAsync(roots, progress, ct);
             await RefreshIndexStateAsync();
             StatusText = "Index built";
         }, "Building index");
@@ -190,8 +191,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task DeleteIndexAsync()
     {
-        if (string.IsNullOrWhiteSpace(FolderPath)) return;
-        await _indexed.DeleteIndexAsync(FolderPath, CancellationToken.None);
+        var roots = SelectedRoots;
+        if (roots.Count == 0) return;
+        await _indexed.DeleteIndexAsync(roots, CancellationToken.None);
         await RefreshIndexStateAsync();
         StatusText = "Index deleted";
     }
@@ -199,9 +201,10 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task SearchAsync()
     {
-        if (string.IsNullOrWhiteSpace(FolderPath) || !Directory.Exists(FolderPath))
+        var roots = SelectedRoots;
+        if (roots.Count == 0)
         {
-            StatusText = "Select a valid folder";
+            StatusText = "Select at least one folder";
             return;
         }
         if (string.IsNullOrEmpty(QueryText))
@@ -215,7 +218,7 @@ public partial class MainViewModel : ObservableObject
 
         await RunAsync(async (progress, ct) =>
         {
-            var result = await engine.SearchAsync(FolderPath!, query, progress, ct);
+            var result = await engine.SearchAsync(roots, query, progress, ct);
             SelectedFile = null;
             SelectedHit = null;
             CurrentMatcherTermsHint = QueryText;

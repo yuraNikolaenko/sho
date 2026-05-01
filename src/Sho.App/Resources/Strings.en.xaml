@@ -4,7 +4,13 @@
 
     <sys:String x:Key="Str.AppTitle">sho — fast document search</sys:String>
     <sys:String x:Key="Str.Folder">Folder:</sys:String>
+    <sys:String x:Key="Str.Folders">Folders:</sys:String>
     <sys:String x:Key="Str.Browse">Browse…</sys:String>
+    <sys:String x:Key="Str.ChooseFolders">Choose folders…</sys:String>
+    <sys:String x:Key="Str.PickFoldersTitle">Select folders to search / index</sys:String>
+    <sys:String x:Key="Str.PickFoldersSummary">Tick folders in the file-system tree</sys:String>
+    <sys:String x:Key="Str.Ok">OK</sys:String>
+    <sys:String x:Key="Str.ClearAll">Clear all</sys:String>
     <sys:String x:Key="Str.Find">Find:</sys:String>
     <sys:String x:Key="Str.Search">Search</sys:String>
     <sys:String x:Key="Str.UseIndex">Use index</sys:String>

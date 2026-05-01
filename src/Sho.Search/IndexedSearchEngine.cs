@@ -33,34 +33,38 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
 
     public string Name => "Indexed (Lucene)";
 
-    private string GetIndexDir(string rootFolder) =>
-        Path.Combine(_indexRoot, PathHasher.Hash(rootFolder));
+    private string GetIndexDir(IReadOnlyList<string> rootFolders) =>
+        Path.Combine(_indexRoot, PathHasher.Hash(rootFolders));
 
-    public Task<bool> IsIndexBuiltAsync(string rootFolder, CancellationToken cancellationToken)
+    public Task<bool> IsIndexBuiltAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken)
     {
-        var dir = GetIndexDir(rootFolder);
+        var dir = GetIndexDir(rootFolders);
         var built = IODirectory.Exists(dir) && IODirectory.EnumerateFiles(dir).Any();
         return Task.FromResult(built);
     }
 
-    public Task DeleteIndexAsync(string rootFolder, CancellationToken cancellationToken)
+    public Task DeleteIndexAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken)
     {
-        var dir = GetIndexDir(rootFolder);
+        var dir = GetIndexDir(rootFolders);
         if (IODirectory.Exists(dir)) IODirectory.Delete(dir, true);
         return Task.CompletedTask;
     }
 
     public async Task BuildIndexAsync(
-        string rootFolder,
+        IReadOnlyList<string> rootFolders,
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        var indexDir = GetIndexDir(rootFolder);
+        var indexDir = GetIndexDir(rootFolders);
         IODirectory.CreateDirectory(indexDir);
 
-        progress?.Report(new IndexProgress(0, 0, null, "Scanning folder", sw.ElapsedMilliseconds));
-        var docs = FileScanner.Enumerate(rootFolder, _registry.SupportedExtensions).ToList();
+        progress?.Report(new IndexProgress(0, 0, null, "Scanning folders", sw.ElapsedMilliseconds));
+        var roots = BruteForceSearchEngine.DedupeRoots(rootFolders);
+        var docs = roots.SelectMany(r => FileScanner.Enumerate(r, _registry.SupportedExtensions))
+                         .GroupBy(d => d.Path, StringComparer.OrdinalIgnoreCase)
+                         .Select(g => g.First())
+                         .ToList();
         int total = docs.Count;
         progress?.Report(new IndexProgress(0, total, null, "Indexing", sw.ElapsedMilliseconds));
 
@@ -103,13 +107,13 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
     }
 
     public async Task<SearchResult> SearchAsync(
-        string rootFolder,
+        IReadOnlyList<string> rootFolders,
         SearchQuery query,
         IProgress<IndexProgress>? progress,
         CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        var indexDir = GetIndexDir(rootFolder);
+        var indexDir = GetIndexDir(rootFolders);
         if (!IODirectory.Exists(indexDir) || !IODirectory.EnumerateFiles(indexDir).Any())
         {
             return new SearchResult

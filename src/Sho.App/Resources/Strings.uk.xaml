@@ -4,7 +4,13 @@
 
     <sys:String x:Key="Str.AppTitle">sho — швидкий пошук документів</sys:String>
     <sys:String x:Key="Str.Folder">Папка:</sys:String>
+    <sys:String x:Key="Str.Folders">Папки:</sys:String>
     <sys:String x:Key="Str.Browse">Огляд…</sys:String>
+    <sys:String x:Key="Str.ChooseFolders">Вибрати папки…</sys:String>
+    <sys:String x:Key="Str.PickFoldersTitle">Вибір папок для пошуку / індексації</sys:String>
+    <sys:String x:Key="Str.PickFoldersSummary">Позначте папки на дереві файлової системи</sys:String>
+    <sys:String x:Key="Str.Ok">OK</sys:String>
+    <sys:String x:Key="Str.ClearAll">Зняти всі</sys:String>
     <sys:String x:Key="Str.Find">Пошук:</sys:String>
     <sys:String x:Key="Str.Search">Шукати</sys:String>
     <sys:String x:Key="Str.UseIndex">Використати індекс</sys:String>

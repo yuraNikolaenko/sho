@@ -150,15 +150,20 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0">
-                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Browse}"
+                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.ChooseFolders}"
                                    Margin="6,0,0,0" Padding="12,3"
-                                   Command="{Binding SelectFolderCommand}"
-                                   Icon="{ui:SymbolIcon Folder24}"/>
+                                   Click="ChooseFoldersButton_Click"
+                                   Icon="{ui:SymbolIcon FolderOpen24}"/>
                         <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Text="{DynamicResource Str.Folder}" Width="56"/>
-                        <ui:TextBox Text="{Binding FolderPath, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="C:\..."
-                                    VerticalContentAlignment="Center"/>
+                                   Text="{DynamicResource Str.Folders}" Width="56"/>
+                        <Border BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                                BorderThickness="1" CornerRadius="4"
+                                Padding="8,5" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FolderSummary}"
+                                       Opacity="0.8"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"/>
+                        </Border>
                     </DockPanel>
 
                     <DockPanel Grid.Row="2">
@@ -309,11 +314,11 @@
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent"/>
 
-            <Grid Grid.Column="2">
+            <Grid Grid.Column="2" x:Name="RightColumnGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" MinHeight="120"/>
-                    <RowDefinition Height="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='Auto|0'}"/>
-                    <RowDefinition Height="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='3*|0'}" MinHeight="0"/>
+                    <RowDefinition x:Name="PreviewSplitterRow" Height="0"/>
+                    <RowDefinition x:Name="PreviewRow" Height="0"/>
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0"
