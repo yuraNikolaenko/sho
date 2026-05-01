@@ -1,9 +1,7 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,7 +22,6 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<FileSummary> Files { get; } = new();
     public ObservableCollection<SearchHit> Lines { get; } = new();
-    public ICollectionView LinesView { get; }
 
     [ObservableProperty] private string? _folderPath;
     [ObservableProperty] private string _queryText = string.Empty;
@@ -58,22 +55,11 @@ public partial class MainViewModel : ObservableObject
         _brute = new BruteForceSearchEngine(_registry);
         _indexed = new IndexedSearchEngine(_registry);
         _heartbeat.Tick += OnHeartbeat;
-
-        LinesView = CollectionViewSource.GetDefaultView(Lines);
-        LinesView.Filter = LinesFilter;
-    }
-
-    private bool LinesFilter(object item)
-    {
-        if (SelectedFile == null) return true;
-        return item is SearchHit hit
-            && string.Equals(hit.FilePath, SelectedFile.FilePath, StringComparison.OrdinalIgnoreCase);
     }
 
     partial void OnSelectedFileChanged(FileSummary? value)
     {
         IsLinesFiltered = value != null;
-        LinesView.Refresh();
     }
 
     partial void OnSelectedHitChanged(SearchHit? value) => RefreshPreview();
@@ -250,7 +236,6 @@ public partial class MainViewModel : ObservableObject
             Lines.Clear();
             foreach (var f in result.Files) Files.Add(f);
             foreach (var l in result.Lines) Lines.Add(l);
-            LinesView.Refresh();
             RefreshPreview();
             if (!string.IsNullOrEmpty(result.Error))
                 StatusText = result.Error!;

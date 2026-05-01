@@ -38,6 +38,28 @@ public sealed class BoolToIndexStatusConverter : IValueConverter
         => Binding.DoNothing;
 }
 
+public sealed class PathToIconConverter : IValueConverter
+{
+    public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is string path ? Sho.App.Services.FileIconCache.GetForPath(path) : null;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => Binding.DoNothing;
+}
+
+public sealed class StringsEqualConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values == null || values.Length < 2) return false;
+        var a = values[0] as string;
+        var b = values[1] as string;
+        if (string.IsNullOrEmpty(b)) return false;
+        return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 public sealed class BoolToGridLengthConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

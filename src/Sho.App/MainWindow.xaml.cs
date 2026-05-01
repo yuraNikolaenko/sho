@@ -77,12 +77,20 @@ public partial class MainWindow : FluentWindow
             PreviewWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
             PreviewWebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
             _webViewInitialized = true;
+            PreviewError.Visibility = Visibility.Collapsed;
             if (!string.IsNullOrEmpty(Vm.PreviewHtml))
                 PreviewWebView.NavigateToString(Vm.PreviewHtml);
         }
         catch (System.Exception ex)
         {
             System.Diagnostics.Debug.WriteLine("WebView2 init failed: " + ex);
+            PreviewWebView.Visibility = Visibility.Collapsed;
+            PreviewError.Visibility = Visibility.Visible;
+            PreviewError.Text =
+                "DOCX preview requires Microsoft Edge WebView2 Runtime. " +
+                "It is preinstalled on Windows 11; on Windows 10 install from " +
+                "https://developer.microsoft.com/microsoft-edge/webview2/\n\n" +
+                "Details: " + ex.Message;
         }
         finally
         {
