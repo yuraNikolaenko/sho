@@ -40,25 +40,36 @@ public partial class FolderPickerWindow : FluentWindow
                 var node = new FolderTreeNode(label, path);
                 Roots.Add(node);
 
-                MarkInitiallySelected(node, initiallySelected);
-
-                // Expand each drive's first level so the user immediately sees
-                // top-level folders and can navigate without searching for the
-                // expand chevron. Lazy load is still cheap — only one level deep.
-                node.IsExpanded = true;
+                if (initiallySelected.Count > 0)
+                    ExpandToSelected(node, initiallySelected);
             }
             catch { }
         }
     }
 
-    private void MarkInitiallySelected(FolderTreeNode node, HashSet<string> selected)
+    /// <summary>
+    /// Walks the tree, expanding only the chain of nodes that contain a
+    /// previously-selected path. Branches without selected descendants stay
+    /// collapsed. If <paramref name="selected"/> is empty the whole tree
+    /// stays collapsed (caller should not invoke this).
+    /// </summary>
+    private static void ExpandToSelected(FolderTreeNode node, HashSet<string> selected)
     {
-        // We deliberately do NOT auto-expand the tree. The user opens the picker
-        // and immediately sees ALL drives (C:\, D:\, …) at the top level.
-        // Selected paths are surfaced via the chip in the dialog footer; user
-        // navigates manually to the folder they want to add or remove.
-        if (selected.Count == 0) return;
+        var prefix = node.FullPath.TrimEnd('\\') + "\\";
+        bool hasSelectedDescendant = selected.Any(s =>
+            s.Equals(node.FullPath, StringComparison.OrdinalIgnoreCase)
+            || s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+
+        if (!hasSelectedDescendant) return;
+
+        // Mark FIRST so the IsChecked event fires before children load,
+        // skipping the propagation-to-descendants path inside the node.
         if (selected.Contains(node.FullPath)) node.IsChecked = true;
+
+        node.IsExpanded = true; // triggers Load via OnIsExpandedChanged
+
+        foreach (var child in node.Children)
+            ExpandToSelected(child, selected);
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)

@@ -44,6 +44,15 @@ public partial class MainWindow : FluentWindow
             App.SettingsService.Save(App.Settings);
         };
 
+        foreach (var q in App.Settings.QueryHistory ?? new List<string>())
+            Vm.QueryHistory.Add(q);
+
+        Vm.QueryHistory.CollectionChanged += (_, _) =>
+        {
+            App.Settings.QueryHistory = Vm.QueryHistory.ToList();
+            App.SettingsService.Save(App.Settings);
+        };
+
         Vm.PropertyChanged += OnVmPropertyChanged;
 
         UpdateThemeIcon();
@@ -68,6 +77,18 @@ public partial class MainWindow : FluentWindow
         else if (e.PropertyName == nameof(MainViewModel.PreviewFilePath))
         {
             NavigatePreview(Vm.PreviewFilePath);
+        }
+    }
+
+    private void QueryComboBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Enter)
+        {
+            // Commit the editable text to the bound property and close the dropdown
+            QueryComboBox.IsDropDownOpen = false;
+            if (Vm.SearchCommand.CanExecute(null))
+                Vm.SearchCommand.Execute(null);
+            e.Handled = true;
         }
     }
 

@@ -135,7 +135,7 @@
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
-        <ui:Card Grid.Row="1" Margin="16,8,16,4" Padding="10">
+        <ui:Card Grid.Row="1" Margin="16,0,16,4" Padding="10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="320"/>
@@ -155,6 +155,25 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0">
+                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Search}"
+                                   Margin="6,0,0,0" Padding="18,3"
+                                   Appearance="Primary"
+                                   Command="{Binding SearchCommand}" IsDefault="True"
+                                   Icon="{ui:SymbolIcon Search24}"/>
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
+                                   Text="{DynamicResource Str.Find}" Width="56"/>
+                        <ComboBox x:Name="QueryComboBox"
+                                  IsEditable="True"
+                                  IsTextSearchEnabled="False"
+                                  StaysOpenOnEdit="True"
+                                  Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                                  ItemsSource="{Binding QueryHistory}"
+                                  KeyDown="QueryComboBox_KeyDown"
+                                  FontSize="14"
+                                  VerticalContentAlignment="Center"/>
+                    </DockPanel>
+
+                    <DockPanel Grid.Row="2">
                         <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.ChooseFolders}"
                                    Margin="6,0,0,0" Padding="12,3"
                                    Click="ChooseFoldersButton_Click"
@@ -170,27 +189,14 @@
                                        VerticalAlignment="Center"/>
                         </Border>
                     </DockPanel>
-
-                    <DockPanel Grid.Row="2">
-                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Search}"
-                                   Margin="6,0,0,0" Padding="18,3"
-                                   Appearance="Primary"
-                                   Command="{Binding SearchCommand}" IsDefault="True"
-                                   Icon="{ui:SymbolIcon Search24}"/>
-                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Text="{DynamicResource Str.Find}" Width="56"/>
-                        <ui:TextBox Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
-                                    VerticalContentAlignment="Center" FontSize="14"
-                                    PlaceholderText='Ніколаенко   |   "Юрій Вікторович"   |   foo AND bar'/>
-                    </DockPanel>
                 </Grid>
 
                 <Border Grid.Column="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1,0,0,0" Margin="2,0"/>
 
                 <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center">
-                    <ui:ToggleSwitch Content="{DynamicResource Str.UseIndex}"
-                                     IsChecked="{Binding UseIndex}" Margin="0,2"/>
+                    <CheckBox Content="{DynamicResource Str.UseIndex}"
+                              IsChecked="{Binding UseIndex}" Margin="0,2"/>
                     <CheckBox Content="{DynamicResource Str.MatchCase}"
                               IsChecked="{Binding CaseSensitive}" Margin="0,2"/>
                     <CheckBox Content="{DynamicResource Str.WholeWord}"

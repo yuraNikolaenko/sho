@@ -10,6 +10,7 @@ public sealed class AppSettings
     public string? LastFolder { get; set; }
     public List<string> LastFolders { get; set; } = new();
     public bool ShowPreview { get; set; } = true;
+    public List<string> QueryHistory { get; set; } = new();
 }
 
 public sealed class SettingsService

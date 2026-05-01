@@ -29,16 +29,9 @@ public sealed partial class FolderTreeNode : ObservableObject
         if (value && !_loaded) Load();
     }
 
-    partial void OnIsCheckedChanged(bool value)
-    {
-        // Propagate to descendants only if children are already loaded —
-        // do not force-load (would block UI on huge subtrees).
-        if (_loaded)
-        {
-            foreach (var c in Children)
-                c.IsChecked = value;
-        }
-    }
+    // No automatic propagation: each ticked folder is an independent search root.
+    // OkButton dedupes ancestor/descendant overlap, so the user can safely tick a
+    // parent without wading through children.
 
     private void Load()
     {

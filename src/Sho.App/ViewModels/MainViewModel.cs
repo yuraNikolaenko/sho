@@ -23,6 +23,8 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<FileSummary> Files { get; } = new();
     public ObservableCollection<SearchHit> Lines { get; } = new();
     public ObservableCollection<string> FolderPaths { get; } = new();
+    public ObservableCollection<string> QueryHistory { get; } = new();
+    public const int MaxQueryHistory = 50;
 
     [ObservableProperty] private string _folderSummary = string.Empty;
     [ObservableProperty] private string _queryText = string.Empty;
@@ -228,6 +230,16 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Index deleted";
     }
 
+    public void RememberQuery(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return;
+        var existing = QueryHistory.IndexOf(query);
+        if (existing >= 0) QueryHistory.RemoveAt(existing);
+        QueryHistory.Insert(0, query);
+        while (QueryHistory.Count > MaxQueryHistory)
+            QueryHistory.RemoveAt(QueryHistory.Count - 1);
+    }
+
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task SearchAsync()
     {
@@ -242,6 +254,8 @@ public partial class MainViewModel : ObservableObject
             StatusText = "Enter search text";
             return;
         }
+
+        RememberQuery(QueryText);
 
         var query = new SearchQuery(QueryText, CaseSensitive, WholeWord);
         ISearchEngine engine = UseIndex ? _indexed : _brute;
