@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +23,7 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<FileSummary> Files { get; } = new();
     public ObservableCollection<SearchHit> Lines { get; } = new();
+    public ICollectionView LinesView { get; }
 
     [ObservableProperty] private string? _folderPath;
     [ObservableProperty] private string _queryText = string.Empty;
@@ -34,6 +37,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _indexExists;
     [ObservableProperty] private string? _currentFile;
     [ObservableProperty] private string _progressDetail = string.Empty;
+    [ObservableProperty] private FileSummary? _selectedFile;
+    [ObservableProperty] private bool _isLinesFiltered;
 
     private readonly DispatcherTimer _heartbeat = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private DateTime _currentFileStartedUtc;
@@ -47,7 +52,26 @@ public partial class MainViewModel : ObservableObject
         _brute = new BruteForceSearchEngine(_registry);
         _indexed = new IndexedSearchEngine(_registry);
         _heartbeat.Tick += OnHeartbeat;
+
+        LinesView = CollectionViewSource.GetDefaultView(Lines);
+        LinesView.Filter = LinesFilter;
     }
+
+    private bool LinesFilter(object item)
+    {
+        if (SelectedFile == null) return true;
+        return item is SearchHit hit
+            && string.Equals(hit.FilePath, SelectedFile.FilePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    partial void OnSelectedFileChanged(FileSummary? value)
+    {
+        IsLinesFiltered = value != null;
+        LinesView.Refresh();
+    }
+
+    [RelayCommand]
+    private void ClearFileFilter() => SelectedFile = null;
 
     private void OnHeartbeat(object? sender, EventArgs e)
     {
@@ -168,10 +192,12 @@ public partial class MainViewModel : ObservableObject
         await RunAsync(async (progress, ct) =>
         {
             var result = await engine.SearchAsync(FolderPath!, query, progress, ct);
+            SelectedFile = null;
             Files.Clear();
             Lines.Clear();
             foreach (var f in result.Files) Files.Add(f);
             foreach (var l in result.Lines) Lines.Add(l);
+            LinesView.Refresh();
             if (!string.IsNullOrEmpty(result.Error))
                 StatusText = result.Error!;
             else

@@ -16,8 +16,9 @@
         <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
         <conv:BoolToIndexStatusConverter x:Key="BoolToIndexStatusConverter"/>
 
-        <Style x:Key="TransparentDataGrid" TargetType="DataGrid">
-            <Setter Property="Background" Value="Transparent"/>
+        <Style x:Key="ResultsDataGrid" TargetType="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="RowBackground" Value="Transparent"/>
             <Setter Property="AlternatingRowBackground" Value="Transparent"/>
@@ -31,14 +32,13 @@
                 <Setter.Value>
                     <Style TargetType="DataGridCell">
                         <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
                         <Setter Property="BorderThickness" Value="0"/>
                         <Setter Property="Padding" Value="6,2"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="DataGridCell">
                                     <Border Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
                                             Padding="{TemplateBinding Padding}">
                                         <ContentPresenter VerticalAlignment="Center"/>
                                     </Border>
@@ -52,12 +52,14 @@
                 <Setter.Value>
                     <Style TargetType="DataGridRow">
                         <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
                         <Style.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -66,12 +68,36 @@
             <Setter Property="ColumnHeaderStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridColumnHeader">
-                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
                         <Setter Property="BorderThickness" Value="0,0,0,1"/>
                         <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
-                        <Setter Property="Padding" Value="6,4"/>
+                        <Setter Property="Padding" Value="8,6"/>
                         <Setter Property="HorizontalContentAlignment" Value="Left"/>
                         <Setter Property="FontWeight" Value="SemiBold"/>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LinesDataGrid" TargetType="DataGrid" BasedOn="{StaticResource ResultsDataGrid}">
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=DataContext.IsLinesFiltered}" Value="True">
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource AccentFillColorTertiaryBrush}"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </Trigger>
+                        </Style.Triggers>
                     </Style>
                 </Setter.Value>
             </Setter>
@@ -206,8 +232,9 @@
                     <TextBlock Grid.Row="0" Margin="10,6" FontWeight="SemiBold"
                                Text="{DynamicResource Str.FilesGroup}"/>
                     <DataGrid Grid.Row="1"
-                              Style="{StaticResource TransparentDataGrid}"
+                              Style="{StaticResource ResultsDataGrid}"
                               ItemsSource="{Binding Files}"
+                              SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
                               MouseDoubleClick="FilesGrid_MouseDoubleClick"
                               Name="FilesGrid">
                         <DataGrid.ContextMenu>
@@ -218,6 +245,14 @@
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource Str.Col.Path}" Binding="{Binding FilePath}" Width="2*">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="ToolTip" Value="{Binding FilePath}"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.File}" Binding="{Binding FileName}" Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.Hits}" Binding="{Binding HitCount}" Width="60"/>
                             <DataGridTextColumn Header="{DynamicResource Str.Col.Ext}" Binding="{Binding Extension}" Width="60"/>
@@ -235,11 +270,27 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Margin="10,6" FontWeight="SemiBold"
-                               Text="{DynamicResource Str.LinesGroup}"/>
+                    <DockPanel Grid.Row="0" Margin="10,6">
+                        <Border DockPanel.Dock="Right"
+                                Visibility="{Binding IsLinesFiltered, Converter={StaticResource BoolToVisibilityConverter}}"
+                                Background="{DynamicResource AccentFillColorTertiaryBrush}"
+                                CornerRadius="4" Padding="6,2">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding SelectedFile.FileName}"
+                                           VerticalAlignment="Center" FontSize="11"/>
+                                <ui:Button Margin="6,0,0,0" Padding="0"
+                                           Background="Transparent" BorderThickness="0"
+                                           Icon="{ui:SymbolIcon Dismiss20}"
+                                           Command="{Binding ClearFileFilterCommand}"
+                                           ToolTip="{DynamicResource Str.ClearFilter}"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock FontWeight="SemiBold"
+                                   Text="{DynamicResource Str.LinesGroup}"/>
+                    </DockPanel>
                     <DataGrid Grid.Row="1"
-                              Style="{StaticResource TransparentDataGrid}"
-                              ItemsSource="{Binding Lines}"
+                              Style="{StaticResource LinesDataGrid}"
+                              ItemsSource="{Binding LinesView}"
                               RowHeight="22"
                               MouseDoubleClick="LinesGrid_MouseDoubleClick"
                               Name="LinesGrid">

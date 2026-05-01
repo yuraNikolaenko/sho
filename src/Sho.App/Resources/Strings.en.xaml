@@ -17,7 +17,9 @@
     <sys:String x:Key="Str.Cancel">Cancel</sys:String>
     <sys:String x:Key="Str.FilesGroup">Files (matches)</sys:String>
     <sys:String x:Key="Str.LinesGroup">Lines (context)</sys:String>
+    <sys:String x:Key="Str.Col.Path">Path</sys:String>
     <sys:String x:Key="Str.Col.File">File</sys:String>
+    <sys:String x:Key="Str.ClearFilter">Clear filter</sys:String>
     <sys:String x:Key="Str.Col.Hits">Hits</sys:String>
     <sys:String x:Key="Str.Col.Ext">Type</sys:String>
     <sys:String x:Key="Str.Col.Modified">Modified (UTC)</sys:String>
