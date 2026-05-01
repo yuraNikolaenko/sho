@@ -18,7 +18,11 @@
 
         <ui:TitleBar Grid.Row="0"
                      Title="{DynamicResource Str.PickFoldersTitle}"
-                     ShowMaximize="False" ShowMinimize="False"/>
+                     ShowMaximize="False" ShowMinimize="False">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="FolderOpen24" Foreground="#FF5722"/>
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <Border Grid.Row="1" Margin="16,8,16,8"
                 Background="{DynamicResource CardBackground}"
@@ -48,9 +52,6 @@
         </Border>
 
         <DockPanel Grid.Row="2" Margin="16,0,16,16">
-            <TextBlock x:Name="SummaryLabel" DockPanel.Dock="Left"
-                       VerticalAlignment="Center" Opacity="0.7"
-                       Text="{DynamicResource Str.PickFoldersSummary}"/>
             <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Cancel}"
                        Margin="6,0,0,0" Padding="14,5"
                        Click="CancelButton_Click"/>
@@ -61,7 +62,10 @@
             <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.ClearAll}"
                        Margin="6,0,0,0" Padding="10,5"
                        Click="ClearAllButton_Click"/>
-            <Grid/>
+            <TextBlock x:Name="SummaryLabel"
+                       VerticalAlignment="Center" Opacity="0.7"
+                       TextTrimming="CharacterEllipsis"
+                       Text="{DynamicResource Str.PickFoldersSummary}"/>
         </DockPanel>
     </Grid>
 </ui:FluentWindow>

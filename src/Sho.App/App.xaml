@@ -10,6 +10,10 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Hard contrast brushes for results tables — mutated from code on theme switch -->
+            <SolidColorBrush x:Key="ResultsBackground" Color="#000000"/>
+            <SolidColorBrush x:Key="ResultsForeground" Color="#FFFFFF"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

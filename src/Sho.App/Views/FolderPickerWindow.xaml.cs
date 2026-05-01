@@ -14,6 +14,7 @@ public partial class FolderPickerWindow : FluentWindow
     public FolderPickerWindow(IEnumerable<string> initiallySelected)
     {
         InitializeComponent();
+        Icon = Sho.App.Services.AppIconFactory.Create();
         BuildRoots(new HashSet<string>(initiallySelected ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase));
     }
 
@@ -39,36 +40,12 @@ public partial class FolderPickerWindow : FluentWindow
 
     private void MarkInitiallySelected(FolderTreeNode node, HashSet<string> selected)
     {
+        // We deliberately do NOT auto-expand the tree. The user opens the picker
+        // and immediately sees ALL drives (C:\, D:\, …) at the top level.
+        // Selected paths are surfaced via the chip in the dialog footer; user
+        // navigates manually to the folder they want to add or remove.
         if (selected.Count == 0) return;
-        var prefix = node.FullPath.TrimEnd('\\') + "\\";
-        if (selected.Any(s => s.Equals(node.FullPath, StringComparison.OrdinalIgnoreCase)
-                              || s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
-        {
-            node.IsExpanded = true;
-            foreach (var s in selected.Where(p => p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                                               || p.Equals(node.FullPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                ExpandToPath(node, s);
-            }
-            foreach (var s in selected.Where(p => p.Equals(node.FullPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                node.IsChecked = true;
-            }
-        }
-    }
-
-    private void ExpandToPath(FolderTreeNode node, string targetPath)
-    {
-        if (node.FullPath.Equals(targetPath, StringComparison.OrdinalIgnoreCase))
-        {
-            node.IsChecked = true;
-            return;
-        }
-        var prefix = node.FullPath.TrimEnd('\\') + "\\";
-        if (!targetPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return;
-        node.IsExpanded = true; // triggers Load via OnIsExpandedChanged
-        foreach (var c in node.Children)
-            ExpandToPath(c, targetPath);
+        if (selected.Contains(node.FullPath)) node.IsChecked = true;
     }
 
     private void OkButton_Click(object sender, RoutedEventArgs e)

@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
-    <sys:String x:Key="Str.AppTitle">sho — fast document search</sys:String>
+    <sys:String x:Key="Str.AppTitle">Shozilla — fast document search</sys:String>
     <sys:String x:Key="Str.Folder">Folder:</sys:String>
     <sys:String x:Key="Str.Folders">Folders:</sys:String>
     <sys:String x:Key="Str.Browse">Browse…</sys:String>

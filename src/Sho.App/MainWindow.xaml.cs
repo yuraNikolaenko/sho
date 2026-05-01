@@ -19,6 +19,7 @@ public partial class MainWindow : FluentWindow
     public MainWindow()
     {
         InitializeComponent();
+        Icon = AppIconFactory.Create();
         Loaded += OnLoaded;
         Closed += (_, _) =>
         {
@@ -49,6 +50,7 @@ public partial class MainWindow : FluentWindow
         UpdateLanguageLabel();
         UpdatePreviewButton();
         UpdatePreviewLayout();
+        UpdateContrastBrushes(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
 
         if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
@@ -214,7 +216,22 @@ public partial class MainWindow : FluentWindow
         App.Settings.Theme = next == ApplicationTheme.Dark ? "Dark" : "Light";
         App.SettingsService.Save(App.Settings);
         UpdateThemeIcon();
+        UpdateContrastBrushes(next == ApplicationTheme.Dark);
         Vm.SetDarkTheme(next == ApplicationTheme.Dark);
+    }
+
+    private static void UpdateContrastBrushes(bool isDark)
+    {
+        var bg = new System.Windows.Media.SolidColorBrush(
+            isDark ? System.Windows.Media.Color.FromRgb(0, 0, 0)
+                   : System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF));
+        bg.Freeze();
+        var fg = new System.Windows.Media.SolidColorBrush(
+            isDark ? System.Windows.Media.Color.FromRgb(0xFF, 0xFF, 0xFF)
+                   : System.Windows.Media.Color.FromRgb(0, 0, 0));
+        fg.Freeze();
+        Application.Current.Resources["ResultsBackground"] = bg;
+        Application.Current.Resources["ResultsForeground"] = fg;
     }
 
     private void UpdateThemeIcon()

@@ -22,7 +22,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationIcon></ApplicationIcon>
     <RootNamespace>Sho.App</RootNamespace>
-    <AssemblyName>Sho</AssemblyName>
+    <AssemblyName>Shozilla</AssemblyName>
   </PropertyGroup>
 
 </Project>

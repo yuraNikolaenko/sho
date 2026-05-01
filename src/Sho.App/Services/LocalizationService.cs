@@ -17,7 +17,7 @@ public static class LocalizationService
 
         var newDict = new ResourceDictionary
         {
-            Source = new Uri($"pack://application:,,,/Sho;component/Resources/Strings.{language}.xaml", UriKind.Absolute)
+            Source = new Uri($"pack://application:,,,/Shozilla;component/Resources/Strings.{language}.xaml", UriKind.Absolute)
         };
 
         var dicts = Application.Current.Resources.MergedDictionaries;

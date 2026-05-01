@@ -21,8 +21,8 @@
         <conv:StringsEqualConverter x:Key="StringsEqualConverter"/>
 
         <Style x:Key="ResultsDataGrid" TargetType="DataGrid">
-            <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ResultsBackground}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ResultsForeground}"/>
             <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Top"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -130,12 +130,17 @@
         <ui:TitleBar Grid.Row="0"
                      Title="{DynamicResource Str.AppTitle}"
                      ShowMaximize="True" ShowMinimize="True">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="SearchInfo24" Foreground="#FF5722"/>
+            </ui:TitleBar.Icon>
         </ui:TitleBar>
 
         <ui:Card Grid.Row="1" Margin="16,8,16,4" Padding="10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="320"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="8"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="8"/>
@@ -183,46 +188,47 @@
                 <Border Grid.Column="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1,0,0,0" Margin="2,0"/>
 
-                <Grid Grid.Column="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="6"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <ui:ToggleSwitch Content="{DynamicResource Str.UseIndex}"
-                                         IsChecked="{Binding UseIndex}" Margin="0,0,12,0"/>
-                        <CheckBox Content="{DynamicResource Str.MatchCase}"
-                                  IsChecked="{Binding CaseSensitive}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                        <CheckBox Content="{DynamicResource Str.WholeWord}"
-                                  IsChecked="{Binding WholeWord}" VerticalAlignment="Center"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock VerticalAlignment="Center" Margin="0,0,8,0"
-                                   FontSize="12"
-                                   Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"
-                                   Text="{Binding IndexExists, Converter={StaticResource BoolToIndexStatusConverter}}"/>
-                        <ui:Button Content="{DynamicResource Str.BuildIndex}"
-                                   Margin="4,0" Padding="8,3"
-                                   Command="{Binding BuildIndexCommand}"
-                                   Icon="{ui:SymbolIcon DatabaseSearch24}"/>
-                        <ui:Button Content="{DynamicResource Str.DeleteIndex}"
-                                   Margin="4,0" Padding="8,3"
-                                   Command="{Binding DeleteIndexCommand}"
-                                   Icon="{ui:SymbolIcon Delete24}"/>
-                        <ui:Button Content="{DynamicResource Str.Cancel}"
-                                   Margin="4,0,0,0" Padding="8,3"
-                                   Command="{Binding CancelCommand}"
-                                   Icon="{ui:SymbolIcon Stop24}"/>
-                    </StackPanel>
-                </Grid>
+                <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center">
+                    <ui:ToggleSwitch Content="{DynamicResource Str.UseIndex}"
+                                     IsChecked="{Binding UseIndex}" Margin="0,2"/>
+                    <CheckBox Content="{DynamicResource Str.MatchCase}"
+                              IsChecked="{Binding CaseSensitive}" Margin="0,2"/>
+                    <CheckBox Content="{DynamicResource Str.WholeWord}"
+                              IsChecked="{Binding WholeWord}" Margin="0,2"/>
+                </StackPanel>
 
                 <Border Grid.Column="3" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1,0,0,0" Margin="2,0"/>
 
                 <StackPanel Grid.Column="4" Orientation="Vertical" VerticalAlignment="Center">
+                    <StackPanel.Resources>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Setter Property="MinWidth" Value="140"/>
+                            <Setter Property="Height" Value="28"/>
+                            <Setter Property="Padding" Value="8,2"/>
+                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                        </Style>
+                    </StackPanel.Resources>
+                    <TextBlock Margin="0,0,0,4"
+                               FontSize="12"
+                               Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"
+                               Text="{Binding IndexExists, Converter={StaticResource BoolToIndexStatusConverter}}"/>
+                    <ui:Button Content="{DynamicResource Str.BuildIndex}"
+                               Command="{Binding BuildIndexCommand}"
+                               Icon="{ui:SymbolIcon DatabaseSearch24}"/>
+                    <ui:Button Content="{DynamicResource Str.DeleteIndex}"
+                               Command="{Binding DeleteIndexCommand}"
+                               Icon="{ui:SymbolIcon Delete24}"/>
+                    <ui:Button Content="{DynamicResource Str.Cancel}"
+                               Command="{Binding CancelCommand}"
+                               Icon="{ui:SymbolIcon Stop24}"/>
+                </StackPanel>
+
+                <Border Grid.Column="5" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1,0,0,0" Margin="2,0"/>
+
+                <StackPanel Grid.Column="6" Orientation="Vertical" VerticalAlignment="Center">
                     <StackPanel.Resources>
                         <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                             <Setter Property="MinWidth" Value="110"/>
