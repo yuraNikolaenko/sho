@@ -253,10 +253,14 @@
                 <ColumnDefinition Width="2*" MinWidth="420"/>
             </Grid.ColumnDefinitions>
 
-            <ui:Card Grid.Column="0" Padding="0"
-                     VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Border Grid.Column="0"
+                    Background="{DynamicResource CardBackground}"
+                    BorderBrush="{DynamicResource CardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                 <DockPanel LastChildFill="True">
-                    <TextBlock DockPanel.Dock="Top" Margin="10,6" FontWeight="SemiBold"
+                    <TextBlock DockPanel.Dock="Top" Margin="14,10,14,6" FontWeight="SemiBold"
                                Text="{DynamicResource Str.FilesGroup}"/>
                     <DataGrid Style="{StaticResource ResultsDataGrid}"
                               ItemsSource="{Binding Files}"
@@ -298,7 +302,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
-            </ui:Card>
+            </Border>
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent"/>
 
@@ -309,10 +313,14 @@
                     <RowDefinition Height="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='2*|0'}"/>
                 </Grid.RowDefinitions>
 
-                <ui:Card Grid.Row="0" Padding="0"
-                         VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <Border Grid.Row="0"
+                        Background="{DynamicResource CardBackground}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top" Margin="10,6" FontWeight="SemiBold"
+                        <TextBlock DockPanel.Dock="Top" Margin="14,10,14,6" FontWeight="SemiBold"
                                    Text="{DynamicResource Str.LinesGroup}"/>
                         <DataGrid Style="{StaticResource LinesDataGrid}"
                                   ItemsSource="{Binding Lines}"
@@ -333,18 +341,22 @@
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>
-                </ui:Card>
+                </Border>
 
                 <GridSplitter Grid.Row="1" Height="6"
                               HorizontalAlignment="Stretch" VerticalAlignment="Center"
                               Background="Transparent" ResizeBehavior="PreviousAndNext"
                               Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                <ui:Card Grid.Row="2" Padding="0"
-                         VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                         Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border Grid.Row="2"
+                        Background="{DynamicResource CardBackground}"
+                        BorderBrush="{DynamicResource CardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                        Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}">
                     <DockPanel LastChildFill="True">
-                        <DockPanel DockPanel.Dock="Top" Margin="10,6">
+                        <DockPanel DockPanel.Dock="Top" Margin="14,10,14,6">
                             <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold"
                                        Text="{DynamicResource Str.PreviewGroup}"/>
                             <TextBlock DockPanel.Dock="Left" Margin="8,0,0,0" Opacity="0.6" FontSize="11"
@@ -360,7 +372,7 @@
                                        FontFamily="Segoe UI" FontSize="13"/>
                         </Grid>
                     </DockPanel>
-                </ui:Card>
+                </Border>
             </Grid>
         </Grid>
 
