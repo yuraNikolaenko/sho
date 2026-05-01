@@ -20,6 +20,9 @@
     <sys:String x:Key="Str.Col.Path">Path</sys:String>
     <sys:String x:Key="Str.Col.File">File</sys:String>
     <sys:String x:Key="Str.ClearFilter">Clear filter</sys:String>
+    <sys:String x:Key="Str.Preview">Preview</sys:String>
+    <sys:String x:Key="Str.PreviewGroup">DOCX preview</sys:String>
+    <sys:String x:Key="Str.PreviewToggleTooltip">Show/hide DOCX preview pane</sys:String>
     <sys:String x:Key="Str.Col.Hits">Hits</sys:String>
     <sys:String x:Key="Str.Col.Ext">Type</sys:String>
     <sys:String x:Key="Str.Col.Modified">Modified (UTC)</sys:String>

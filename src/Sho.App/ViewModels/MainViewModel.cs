@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Sho.App.Services;
 using Sho.Core.Abstractions;
 using Sho.Core.Models;
 using Sho.Extractors;
@@ -39,6 +40,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _progressDetail = string.Empty;
     [ObservableProperty] private FileSummary? _selectedFile;
     [ObservableProperty] private bool _isLinesFiltered;
+    [ObservableProperty] private SearchHit? _selectedHit;
+    [ObservableProperty] private bool _showPreview;
+    [ObservableProperty] private string? _previewHtml;
+    [ObservableProperty] private bool _isPreviewSupported;
+    public DocxPreviewService PreviewService { get; } = new();
 
     private readonly DispatcherTimer _heartbeat = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private DateTime _currentFileStartedUtc;
@@ -69,6 +75,50 @@ public partial class MainViewModel : ObservableObject
         IsLinesFiltered = value != null;
         LinesView.Refresh();
     }
+
+    partial void OnSelectedHitChanged(SearchHit? value) => RefreshPreview();
+    partial void OnShowPreviewChanged(bool value) => RefreshPreview();
+
+    public string? CurrentMatcherTermsHint { get; set; }
+
+    public void SetDarkTheme(bool dark)
+    {
+        _previewDarkTheme = dark;
+        RefreshPreview();
+    }
+    private bool _previewDarkTheme = true;
+
+    private void RefreshPreview()
+    {
+        if (!ShowPreview)
+        {
+            IsPreviewSupported = false;
+            PreviewHtml = null;
+            return;
+        }
+
+        var path = SelectedHit?.FilePath ?? SelectedFile?.FilePath;
+        if (string.IsNullOrEmpty(path))
+        {
+            IsPreviewSupported = false;
+            PreviewHtml = "<html><body style='background:#1e1e1e;color:#888;font-family:Segoe UI;padding:20px'>" +
+                          "Select a line or a file to preview." +
+                          "</body></html>";
+            return;
+        }
+
+        IsPreviewSupported = PreviewService.IsSupported(path);
+        var terms = (CurrentMatcherTermsHint ?? QueryText)
+            .Split(new[] { ' ', '\t', '\r', '\n', '"', '+', '-', '(', ')' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(t => t.Length > 1 && !IsLuceneKeyword(t))
+            .ToList();
+        PreviewHtml = PreviewService.Render(path, terms, _previewDarkTheme, SelectedHit?.LineNumber);
+    }
+
+    private static bool IsLuceneKeyword(string s) =>
+        s.Equals("AND", StringComparison.Ordinal)
+        || s.Equals("OR", StringComparison.Ordinal)
+        || s.Equals("NOT", StringComparison.Ordinal);
 
     [RelayCommand]
     private void ClearFileFilter() => SelectedFile = null;
@@ -193,11 +243,15 @@ public partial class MainViewModel : ObservableObject
         {
             var result = await engine.SearchAsync(FolderPath!, query, progress, ct);
             SelectedFile = null;
+            SelectedHit = null;
+            CurrentMatcherTermsHint = QueryText;
+            PreviewService.ClearCache();
             Files.Clear();
             Lines.Clear();
             foreach (var f in result.Files) Files.Add(f);
             foreach (var l in result.Lines) Lines.Add(l);
             LinesView.Refresh();
+            RefreshPreview();
             if (!string.IsNullOrEmpty(result.Error))
                 StatusText = result.Error!;
             else

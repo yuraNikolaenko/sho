@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -11,14 +13,25 @@ namespace Sho.App;
 
 public partial class MainWindow : FluentWindow
 {
+    private bool _webViewInitialized;
+    private bool _webViewInitializing;
+
     public MainWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        Closed += (_, _) =>
+        {
+            try { PreviewWebView.Dispose(); } catch { }
+        };
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        Vm.ShowPreview = App.Settings.ShowPreview;
+        Vm.SetDarkTheme(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
+        Vm.PropertyChanged += OnVmPropertyChanged;
+
         var lang = App.Settings.Language;
         foreach (ComboBoxItem item in LanguageCombo.Items)
         {
@@ -27,9 +40,67 @@ public partial class MainWindow : FluentWindow
         if (LanguageCombo.SelectedItem == null) LanguageCombo.SelectedIndex = 0;
 
         UpdateThemeIcon();
+
+        if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
 
     private MainViewModel Vm => (MainViewModel)DataContext;
+
+    private async void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.ShowPreview))
+        {
+            App.Settings.ShowPreview = Vm.ShowPreview;
+            App.SettingsService.Save(App.Settings);
+            if (Vm.ShowPreview) await EnsureWebViewAsync();
+        }
+        else if (e.PropertyName == nameof(MainViewModel.PreviewHtml))
+        {
+            await NavigatePreviewAsync(Vm.PreviewHtml);
+        }
+    }
+
+    private async System.Threading.Tasks.Task EnsureWebViewAsync()
+    {
+        if (_webViewInitialized || _webViewInitializing) return;
+        _webViewInitializing = true;
+        try
+        {
+            var userDataDir = Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData),
+                "sho", "webview2");
+            Directory.CreateDirectory(userDataDir);
+            var env = await Microsoft.Web.WebView2.Core.CoreWebView2Environment.CreateAsync(
+                browserExecutableFolder: null, userDataFolder: userDataDir);
+            await PreviewWebView.EnsureCoreWebView2Async(env);
+            PreviewWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+            PreviewWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+            PreviewWebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
+            _webViewInitialized = true;
+            if (!string.IsNullOrEmpty(Vm.PreviewHtml))
+                PreviewWebView.NavigateToString(Vm.PreviewHtml);
+        }
+        catch (System.Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("WebView2 init failed: " + ex);
+        }
+        finally
+        {
+            _webViewInitializing = false;
+        }
+    }
+
+    private async System.Threading.Tasks.Task NavigatePreviewAsync(string? html)
+    {
+        if (!_webViewInitialized) return;
+        if (string.IsNullOrEmpty(html))
+        {
+            PreviewWebView.NavigateToString("<html><body></body></html>");
+            return;
+        }
+        PreviewWebView.NavigateToString(html);
+        await System.Threading.Tasks.Task.CompletedTask;
+    }
 
     private void FilesGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -77,6 +148,7 @@ public partial class MainWindow : FluentWindow
         App.Settings.Theme = next == ApplicationTheme.Dark ? "Dark" : "Light";
         App.SettingsService.Save(App.Settings);
         UpdateThemeIcon();
+        Vm.SetDarkTheme(next == ApplicationTheme.Dark);
     }
 
     private void UpdateThemeIcon()

@@ -37,3 +37,30 @@ public sealed class BoolToIndexStatusConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => Binding.DoNothing;
 }
+
+public sealed class BoolToGridLengthConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        bool show = value is bool b && b;
+        var spec = (parameter as string ?? "*|0").Split('|');
+        var pick = show ? spec[0] : (spec.Length > 1 ? spec[1] : "0");
+        return Parse(pick);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => Binding.DoNothing;
+
+    private static GridLength Parse(string spec)
+    {
+        if (spec.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+            return new GridLength(1, GridUnitType.Auto);
+        if (spec.EndsWith("*"))
+        {
+            var num = spec.TrimEnd('*');
+            double v = string.IsNullOrEmpty(num) ? 1 : double.Parse(num, CultureInfo.InvariantCulture);
+            return new GridLength(v, GridUnitType.Star);
+        }
+        return new GridLength(double.Parse(spec, CultureInfo.InvariantCulture));
+    }
+}

@@ -20,6 +20,9 @@
     <sys:String x:Key="Str.Col.Path">Шлях</sys:String>
     <sys:String x:Key="Str.Col.File">Файл</sys:String>
     <sys:String x:Key="Str.ClearFilter">Скинути фільтр</sys:String>
+    <sys:String x:Key="Str.Preview">Прев'ю</sys:String>
+    <sys:String x:Key="Str.PreviewGroup">Перегляд DOCX</sys:String>
+    <sys:String x:Key="Str.PreviewToggleTooltip">Показати/сховати панель прев'ю DOCX</sys:String>
     <sys:String x:Key="Str.Col.Hits">Збігів</sys:String>
     <sys:String x:Key="Str.Col.Ext">Тип</sys:String>
     <sys:String x:Key="Str.Col.Modified">Змінено (UTC)</sys:String>

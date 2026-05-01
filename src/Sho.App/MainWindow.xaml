@@ -4,6 +4,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:vm="clr-namespace:Sho.App.ViewModels"
         xmlns:conv="clr-namespace:Sho.App.Converters"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="{DynamicResource Str.AppTitle}"
         Height="760" Width="1280"
         WindowStartupLocation="CenterScreen"
@@ -15,6 +16,7 @@
         <conv:PathToFileNameConverter x:Key="PathToFileNameConverter"/>
         <conv:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
         <conv:BoolToIndexStatusConverter x:Key="BoolToIndexStatusConverter"/>
+        <conv:BoolToGridLengthConverter x:Key="BoolToGridLengthConverter"/>
 
         <Style x:Key="ResultsDataGrid" TargetType="DataGrid">
             <Setter Property="Background" Value="{DynamicResource ApplicationBackgroundBrush}"/>
@@ -120,7 +122,15 @@
                      ShowMaximize="True" ShowMinimize="True">
             <ui:TitleBar.TrailingContent>
                 <StackPanel Orientation="Horizontal" Margin="0,0,8,0">
-                    <ComboBox x:Name="LanguageCombo" Width="90" Margin="4,0"
+                    <ToggleButton Margin="4,0" Padding="8,2" VerticalAlignment="Center"
+                                  IsChecked="{Binding ShowPreview, Mode=TwoWay}"
+                                  ToolTip="{DynamicResource Str.PreviewToggleTooltip}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="DocumentSearch24"/>
+                            <TextBlock Text="{DynamicResource Str.Preview}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ToggleButton>
+                    <ComboBox x:Name="LanguageCombo" Width="90" Margin="8,0,4,0"
                               SelectionChanged="LanguageCombo_SelectionChanged"
                               ToolTip="{DynamicResource Str.Language}">
                         <ComboBoxItem Content="Українська" Tag="uk"/>
@@ -221,6 +231,8 @@
                 <ColumnDefinition Width="*" MinWidth="320"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="2*" MinWidth="420"/>
+                <ColumnDefinition Width="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='Auto|0'}"/>
+                <ColumnDefinition Width="{Binding ShowPreview, Converter={StaticResource BoolToGridLengthConverter}, ConverterParameter='2*|0'}"/>
             </Grid.ColumnDefinitions>
 
             <ui:Card Grid.Column="0" Padding="0">
@@ -291,6 +303,7 @@
                     <DataGrid Grid.Row="1"
                               Style="{StaticResource LinesDataGrid}"
                               ItemsSource="{Binding LinesView}"
+                              SelectedItem="{Binding SelectedHit, Mode=TwoWay}"
                               RowHeight="22"
                               MouseDoubleClick="LinesGrid_MouseDoubleClick"
                               Name="LinesGrid">
@@ -306,6 +319,28 @@
                             <DataGridTextColumn Header="{DynamicResource Str.Col.Snippet}" Binding="{Binding Snippet}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
+                </Grid>
+            </ui:Card>
+
+            <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Stretch" Background="Transparent"
+                          Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <ui:Card Grid.Column="4" Padding="0"
+                     Visibility="{Binding ShowPreview, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Grid.Row="0" Margin="10,6">
+                        <TextBlock DockPanel.Dock="Left" FontWeight="SemiBold"
+                                   Text="{DynamicResource Str.PreviewGroup}"/>
+                        <TextBlock DockPanel.Dock="Left" Margin="8,0,0,0" Opacity="0.6" FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding SelectedHit.FilePath, Converter={StaticResource PathToFileNameConverter}, FallbackValue=''}"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </DockPanel>
+                    <wv2:WebView2 Grid.Row="1" Name="PreviewWebView"/>
                 </Grid>
             </ui:Card>
         </Grid>
