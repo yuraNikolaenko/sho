@@ -71,6 +71,20 @@ public class SearchEngineTests : IDisposable
     }
 
     [Fact]
+    public async Task Indexed_quoted_single_word_finds_inflected_form()
+    {
+        var engine = new IndexedSearchEngine(indexRoot: _indexDir);
+        await engine.BuildIndexAsync(_tmpDir, null, CancellationToken.None);
+
+        var bare = await engine.SearchAsync(_tmpDir, new SearchQuery("Ніколаенк"), null, CancellationToken.None);
+        var quoted = await engine.SearchAsync(_tmpDir, new SearchQuery("\"Ніколаенк\""), null, CancellationToken.None);
+
+        Assert.True(quoted.FilesMatched > 0, "quoted partial term should match indexed inflected forms");
+        Assert.Equal(bare.FilesMatched, quoted.FilesMatched);
+        Assert.Equal(bare.TotalHits, quoted.TotalHits);
+    }
+
+    [Fact]
     public async Task Indexed_search_without_index_returns_error()
     {
         var freshIndex = Path.Combine(_tmpDir, "_index2");

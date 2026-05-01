@@ -37,17 +37,34 @@ public class QueryParserTests
     }
 
     [Fact]
-    public void Quoted_phrase_uses_parser()
+    public void Quoted_multiword_phrase_stays_phrase()
     {
         var q = IndexedSearchEngine.BuildLuceneQuery(new SearchQuery("\"hello world\""));
         Assert.IsType<PhraseQuery>(q);
     }
 
     [Fact]
-    public void Boolean_AND_uses_parser_to_BooleanQuery()
+    public void Quoted_single_word_becomes_wildcard()
     {
-        var q = IndexedSearchEngine.BuildLuceneQuery(new SearchQuery("foo AND bar"));
-        Assert.IsType<BooleanQuery>(q);
+        var q = IndexedSearchEngine.BuildLuceneQuery(new SearchQuery("\"Ніколаєнк\""));
+        var wq = Assert.IsType<WildcardQuery>(q);
+        Assert.Equal("*ніколаєнк*", wq.Term.Text);
+    }
+
+    [Fact]
+    public void Boolean_AND_terms_become_wildcard_clauses()
+    {
+        var q = IndexedSearchEngine.BuildLuceneQuery(new SearchQuery("Ніколаєнк AND Юрій"));
+        var bq = Assert.IsType<BooleanQuery>(q);
+        Assert.All(bq.Clauses, c => Assert.IsType<WildcardQuery>(c.Query));
+    }
+
+    [Fact]
+    public void Plus_minus_terms_become_wildcard_clauses()
+    {
+        var q = IndexedSearchEngine.BuildLuceneQuery(new SearchQuery("+Ніколаєнк -тест"));
+        var bq = Assert.IsType<BooleanQuery>(q);
+        Assert.All(bq.Clauses, c => Assert.IsType<WildcardQuery>(c.Query));
     }
 
     [Fact]

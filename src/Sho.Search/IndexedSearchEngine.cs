@@ -129,6 +129,9 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
         var luceneQuery = BuildLuceneQuery(query);
         var topDocs = searcher.Search(luceneQuery, n: Math.Max(50, query.MaxLineHits));
 
+        var matcherTerms = ExtractMatcherTerms(luceneQuery).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (matcherTerms.Count == 0) matcherTerms.Add(query.Text);
+
         var fileSummaries = new List<FileSummary>();
         var hits = new List<SearchHit>();
         int totalHits = 0;
@@ -144,11 +147,16 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
             string content = doc.Get("content") ?? string.Empty;
 
             int fileHits = 0;
-            foreach (var hit in LineMatcher.FindHits(path, content, query))
+            foreach (var term in matcherTerms)
             {
-                hits.Add(hit);
-                fileHits++;
-                totalHits++;
+                var subQuery = new SearchQuery(term, query.CaseSensitive, query.WholeWord, query.ContextChars, query.MaxLineHits);
+                foreach (var hit in LineMatcher.FindHits(path, content, subQuery))
+                {
+                    hits.Add(hit);
+                    fileHits++;
+                    totalHits++;
+                    if (totalHits >= query.MaxLineHits) break;
+                }
                 if (totalHits >= query.MaxLineHits) break;
             }
             if (fileHits > 0)
@@ -184,7 +192,7 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
                     AllowLeadingWildcard = true,
                     DefaultOperator = QueryParserBase.AND_OPERATOR,
                 };
-                return parser.Parse(q.Text);
+                return WildcardifySingleTerms(parser.Parse(q.Text));
             }
             catch
             {
@@ -218,5 +226,79 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
         if (s.IndexOfAny(OperatorChars) >= 0) return true;
         if (BoolKeywords.IsMatch(s)) return true;
         return false;
+    }
+
+    /// <summary>
+    /// Extract the literal substrings to highlight in the document text.
+    /// LineMatcher does substring matching, so wildcards/quotes/operators must be stripped.
+    /// </summary>
+    internal static IEnumerable<string> ExtractMatcherTerms(Query q)
+    {
+        switch (q)
+        {
+            case TermQuery tq:
+                if (!string.IsNullOrEmpty(tq.Term.Text)) yield return tq.Term.Text;
+                break;
+            case WildcardQuery wq:
+                var t = wq.Term.Text.Trim('*', '?');
+                if (!string.IsNullOrEmpty(t)) yield return t;
+                break;
+            case PrefixQuery prq:
+                if (!string.IsNullOrEmpty(prq.Prefix.Text)) yield return prq.Prefix.Text;
+                break;
+            case FuzzyQuery fq:
+                if (!string.IsNullOrEmpty(fq.Term.Text)) yield return fq.Term.Text;
+                break;
+            case PhraseQuery pq:
+                var terms = pq.GetTerms();
+                if (terms.Length == 1)
+                {
+                    if (!string.IsNullOrEmpty(terms[0].Text)) yield return terms[0].Text;
+                }
+                else
+                {
+                    var phrase = string.Join(" ", terms.Select(x => x.Text).Where(x => !string.IsNullOrEmpty(x)));
+                    if (!string.IsNullOrEmpty(phrase)) yield return phrase;
+                }
+                break;
+            case BooleanQuery bq:
+                foreach (var c in bq.Clauses)
+                {
+                    if (c.Occur == Occur.MUST_NOT) continue;
+                    foreach (var sub in ExtractMatcherTerms(c.Query)) yield return sub;
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Recursively replace TermQuery and single-term PhraseQuery with WildcardQuery(*term*).
+    /// Multi-term PhraseQuery, FuzzyQuery, WildcardQuery, etc. are kept as-is so explicit
+    /// user intent is preserved. Fixes UX where typing "single-word" returns no hits because
+    /// the indexed token is the full inflected form (e.g., search "Ніколаєнк" should match
+    /// indexed "Ніколаєнка" / "Ніколаєнку" / etc.).
+    /// </summary>
+    internal static Query WildcardifySingleTerms(Query q)
+    {
+        switch (q)
+        {
+            case TermQuery tq:
+                return new WildcardQuery(new Term(tq.Term.Field, $"*{tq.Term.Text}*"));
+
+            case PhraseQuery pq:
+                var terms = pq.GetTerms();
+                if (terms.Length == 1)
+                    return new WildcardQuery(new Term(terms[0].Field, $"*{terms[0].Text}*"));
+                return pq;
+
+            case BooleanQuery bq:
+                var nb = new BooleanQuery();
+                foreach (var c in bq.Clauses)
+                    nb.Add(WildcardifySingleTerms(c.Query), c.Occur);
+                return nb;
+
+            default:
+                return q;
+        }
     }
 }
