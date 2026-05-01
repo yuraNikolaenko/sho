@@ -49,9 +49,15 @@ public sealed partial class FolderTreeNode : ObservableObject
             return;
         }
 
+        // "C:" without trailing backslash means CWD on C-drive, not the root.
+        // Normalize to "C:\\" before enumerating.
+        var enumPath = FullPath;
+        if (enumPath.Length == 2 && enumPath[1] == ':')
+            enumPath += Path.DirectorySeparatorChar;
+
         try
         {
-            foreach (var dir in Directory.EnumerateDirectories(FullPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            foreach (var dir in Directory.EnumerateDirectories(enumPath).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
             {
                 var name = Path.GetFileName(dir);
                 if (string.IsNullOrEmpty(name)) continue;

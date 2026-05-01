@@ -25,10 +25,18 @@ public partial class FolderPickerWindow : FluentWindow
             try
             {
                 if (!drive.IsReady) continue;
-                var path = drive.RootDirectory.FullName.TrimEnd('\\');
+
+                // CRITICAL: keep the trailing backslash. On Windows,
+                // Directory.EnumerateDirectories("C:") (without "\\") means the
+                // *current directory* on the C: drive, not the root, so the
+                // tree would show CWD's children (e.g., the app's own folder)
+                // instead of the actual drive contents.
+                var path = drive.RootDirectory.FullName; // "C:\"
+                var display = path.TrimEnd('\\');         // "C:" — for label only
                 var label = string.IsNullOrEmpty(drive.VolumeLabel)
-                    ? path
-                    : $"{path}  ({drive.VolumeLabel})";
+                    ? display
+                    : $"{display}  ({drive.VolumeLabel})";
+
                 var node = new FolderTreeNode(label, path);
                 Roots.Add(node);
 
