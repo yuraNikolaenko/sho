@@ -23,4 +23,6 @@ public interface IIndexedSearchEngine : ISearchEngine
     Task<bool> IsIndexBuiltAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken);
 
     Task DeleteIndexAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken);
+
+    Task<IndexMetadata?> GetIndexMetadataAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken);
 }

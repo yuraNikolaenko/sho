@@ -34,6 +34,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private double _progressFraction;
     [ObservableProperty] private string? _progressStage;
     [ObservableProperty] private bool _indexExists;
+    [ObservableProperty] private string _indexInfoText = string.Empty;
     [ObservableProperty] private string? _currentFile;
     [ObservableProperty] private string _progressDetail = string.Empty;
     [ObservableProperty] private FileSummary? _selectedFile;
@@ -166,9 +167,38 @@ public partial class MainViewModel : ObservableObject
     private async Task RefreshIndexStateAsync()
     {
         var roots = SelectedRoots;
-        if (roots.Count == 0) { IndexExists = false; return; }
-        try { IndexExists = await _indexed.IsIndexBuiltAsync(roots, CancellationToken.None); }
-        catch { IndexExists = false; }
+        if (roots.Count == 0)
+        {
+            IndexExists = false;
+            IndexInfoText = "No folders selected";
+            return;
+        }
+        try
+        {
+            IndexExists = await _indexed.IsIndexBuiltAsync(roots, CancellationToken.None);
+            if (IndexExists)
+            {
+                var meta = await _indexed.GetIndexMetadataAsync(roots, CancellationToken.None);
+                if (meta != null)
+                {
+                    var localTime = meta.BuiltUtc.ToLocalTime();
+                    IndexInfoText = $"Index · {localTime:yyyy-MM-dd HH:mm} · {meta.DocumentCount:N0} files";
+                }
+                else
+                {
+                    IndexInfoText = "Index · built";
+                }
+            }
+            else
+            {
+                IndexInfoText = "Index · not built";
+            }
+        }
+        catch
+        {
+            IndexExists = false;
+            IndexInfoText = "Index · error";
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanRun))]

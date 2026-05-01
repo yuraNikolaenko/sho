@@ -33,6 +33,11 @@ public partial class FolderPickerWindow : FluentWindow
                 Roots.Add(node);
 
                 MarkInitiallySelected(node, initiallySelected);
+
+                // Expand each drive's first level so the user immediately sees
+                // top-level folders and can navigate without searching for the
+                // expand chevron. Lazy load is still cheap — only one level deep.
+                node.IsExpanded = true;
             }
             catch { }
         }

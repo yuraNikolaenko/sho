@@ -103,7 +103,30 @@ public sealed class IndexedSearchEngine : IIndexedSearchEngine
 
         progress?.Report(new IndexProgress(done, total, null, "Committing index", sw.ElapsedMilliseconds));
         writer.Commit();
+        WriteMetadata(indexDir, new IndexMetadata(DateTime.UtcNow, done, roots));
         progress?.Report(new IndexProgress(total, total, null, "Indexed", sw.ElapsedMilliseconds));
+    }
+
+    private static void WriteMetadata(string indexDir, IndexMetadata meta)
+    {
+        try
+        {
+            var path = Path.Combine(indexDir, "meta.json");
+            File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(meta));
+        }
+        catch { }
+    }
+
+    public Task<IndexMetadata?> GetIndexMetadataAsync(IReadOnlyList<string> rootFolders, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(GetIndexDir(rootFolders), "meta.json");
+        if (!File.Exists(path)) return Task.FromResult<IndexMetadata?>(null);
+        try
+        {
+            var json = File.ReadAllText(path);
+            return Task.FromResult(System.Text.Json.JsonSerializer.Deserialize<IndexMetadata>(json));
+        }
+        catch { return Task.FromResult<IndexMetadata?>(null); }
     }
 
     public async Task<SearchResult> SearchAsync(
