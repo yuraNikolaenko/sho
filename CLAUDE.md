@@ -18,7 +18,7 @@ Context for AI sessions working on this repo. Read this first before code change
 - **WPF** + **WindowsForms** (the App project sets `UseWindowsForms=true` for legacy interop / CodePages).
 - **Wpf.Ui 4.0.2** — Fluent / Win11 Mica chrome (`FluentWindow`, `TitleBar`, `Card`, `SymbolIcon`, themed `Button`/`TextBox`/`ToggleSwitch`/`ToggleButton`).
 - **CommunityToolkit.Mvvm 8.4.0** — `[ObservableProperty]`, `[RelayCommand]`.
-- **Lucene.NET 4.8.0-beta00017** + `QueryParsers.Classic`.
+- **Lucene.NET 4.8.0-beta00017** + `QueryParsers.Classic` + `Analysis.Morfologik` (Ukrainian lemmatization via bundled UA dict).
 - **PdfPig** (PDF), **DocumentFormat.OpenXml** (DOCX/XLSX/PPTX), **NPOI 2.5.6** (XLS via HSSF, plus POIFS to read OLE for legacy DOC), custom RTF parser.
 - **UTF.Unknown** + **System.Text.Encoding.CodePages** (CP1251/KOI8-U detection).
 - **Mammoth 1.11.0** (DOCX → HTML for preview).
@@ -34,8 +34,9 @@ Sho.sln
 │   ├── Sho.Search/        BruteForceSearchEngine + IndexedSearchEngine + FileScanner.
 │   └── Sho.App/           WPF MVVM UI. AssemblyName = "Shozilla", exe = Shozilla.exe.
 ├── tests/
-│   └── Sho.Tests/         xUnit. 40 tests, ~2 s. Covers LineMatcher, extractors,
-│                          QueryParser, both engines incl. multi-root.
+│   └── Sho.Tests/         xUnit. 57 tests, ~7 s. Covers LineMatcher, extractors,
+│                          QueryParser (incl. UA morphology + fuzzy strictness),
+│                          both engines, incremental update, sync, multi-root.
 └── docs/
     ├── user-guide.md
     ├── developer-guide.md
@@ -61,21 +62,22 @@ dotnet publish src\Sho.App\Sho.App.csproj -c Release -r win-x64 --self-contained
 - `IFileTextExtractor` — `CanHandle(path) → bool`, `ExtractAsync(path, ct) → string` (plain text, no markup).
 - `ITextExtractorRegistry` — resolves extractor by extension, exposes the supported-extension set.
 - `ISearchEngine.SearchAsync(IReadOnlyList<string> rootFolders, SearchQuery, IProgress<IndexProgress>?, CancellationToken) → SearchResult`.
-- `IIndexedSearchEngine` adds `BuildIndexAsync`, `IsIndexBuiltAsync`, `DeleteIndexAsync`, `GetIndexMetadataAsync`.
+- `IIndexedSearchEngine` adds `BuildIndexAsync`, `IsIndexBuiltAsync`, `DeleteIndexAsync`, `GetIndexMetadataAsync`, `UpdateDocumentsAsync` (explicit upsert/delete lists), `SyncIndexAsync` (diff disk vs. index, auto-derive lists).
 - `SearchQuery` = `{ Text, CaseSensitive, WholeWord, ContextChars=80, MaxLineHits=5000 }`.
 - `SearchResult` = `{ Files: FileSummary[], Lines: SearchHit[], TotalFilesScanned, FilesMatched, TotalHits, Elapsed, Error? }`.
-- `IndexMetadata` = `{ BuiltUtc, DocumentCount, RootFolders }` — written as `meta.json` inside the index folder.
+- `IndexMetadata` = `{ BuiltUtc, DocumentCount, RootFolders, AnalyzerVersion }` — written as `meta.json` inside the index folder. `AnalyzerVersion` mismatch with `IndexedSearchEngine.AnalyzerVersion` triggers a "rebuild for UA morphology" hint in the status bar.
 - `IndexProgress` = `{ FilesProcessed, FilesTotal, CurrentFile?, Stage?, ElapsedMs }`.
 
 ## Search semantics
 
 - **Brute-force** searches every supported file under every root, scans content with `LineMatcher.FindHits`. Roots are deduped (`BruteForceSearchEngine.DedupeRoots`) so overlapping ancestors don't double-count.
-- **Indexed** stores text in a Lucene index whose folder is named by `PathHasher.Hash(IReadOnlyList<string>)` (sorted + normalized + sha256). Same set of roots → same index. Different set → different folder.
+- **Indexed** stores text in a Lucene index whose folder is named by `PathHasher.Hash(IReadOnlyList<string>)` (sorted + normalized + sha256). Same set of roots → same index. Different set → different folder. Indexing/parsing analyzer is `LowerUkrainianAnalyzer` (an `AnalyzerWrapper` over `UkrainianMorfologikAnalyzer` with a final `LowerCaseFilter` so dict-cased lemmas land lowercase) — tokens are lemmatized at index AND query time, so "будинок" matches indexed "будинком" / "будинки".
 - Query parsing in `IndexedSearchEngine.BuildLuceneQuery`:
-  - If the query contains any of `+ - " ( ) * ? ~ ^ : \ [ ] { }` or the words `AND`/`OR`/`NOT`, it goes through Lucene's `QueryParser`.
-  - Otherwise: 1 bare token → `WildcardQuery("*term*")`, multiple bare tokens → `PhraseQuery`.
-  - Parser results are passed through `WildcardifySingleTerms` so `"single-word"` quoted searches still match inflected forms (e.g., `"Ніколаенк"` matches indexed `Ніколаенка`).
-- After Lucene picks documents, `ExtractMatcherTerms(query)` extracts the literal substrings we used and re-runs `LineMatcher` on each so the Lines panel and the DOCX preview's `<mark>` highlights line up with the user's intent.
+  - If the query contains any of `+ - " ( ) * ? ~ ^ : \ [ ] { }` or the words `AND`/`OR`/`NOT`, it goes through Lucene's `QueryParser` (which feeds through the UA analyzer).
+  - 1 bare token / single-term parsed result → hybrid `BooleanQuery [TermQuery(lemma) SHOULD, WildcardQuery("*raw*") SHOULD, FuzzyQuery(raw, edits=1) SHOULD]`. Three branches: lemma covers UA-dict inflections; wildcard covers partial inputs; fuzzy covers typos / minor edits. **Fuzzy=1 is intentional** — fuzzy=2 was lenient enough to bridge "ніколаєнка" → "ніколаєва" (Levenshtein 2). The lemma branch already handles real inflections via the UA dict, so fuzzy is just an opt-in safety net for edits ≥ 4 chars. Users who want lenient search type `~2` explicitly per query.
+  - 2+ bare tokens → routed through `QueryParser` with `AND_OPERATOR` and run through `WildcardifySingleTerms` (same hybrid wrap). No positional adjacency — quote the phrase to get `PhraseQuery`.
+- After Lucene picks documents, the Lines panel and DOCX preview highlights are produced by `MorphologicalLineMatcher`. It takes the user's space-split query tokens, builds a per-token "group" (lemma set + raw + length), tokenizes the doc with the same analyzer, and **only emits hits on lines where every group fired**. Without this group-AND step, a query like "Ніколаєнка Юрія" against a 2500-row roster lit up every line with "Юрій" because the matcher saw the two query terms as independent. Per-token match within a group is still flexible: lemma equality, raw substring, or Levenshtein ≤ 1 (matches the FuzzyQuery threshold).
+- Brute-force search remains substring-only (no morphology); `LineMatcher.FindHits` is used there.
 
 ## Index storage
 
@@ -85,15 +87,21 @@ dotnet publish src\Sho.App\Sho.App.csproj -c Release -r win-x64 --self-contained
 
 `%LOCALAPPDATA%\sho\settings.json` — see `Sho.App.Services.AppSettings`:
 ```
-{ Theme, Language, LastFolder?, LastFolders[], ShowPreview, QueryHistory[] }
+{ Theme, Language, LastFolder?, LastFolders[], ShowPreview, QueryHistory[],
+  AutoUpdateIndex, CompactMode }
 ```
 
 ## Preview pipeline
 
-1. `Sho.App.Services.DocxPreviewService.Render(filePath, terms, darkTheme)` writes a complete HTML page to `%LOCALAPPDATA%\sho\preview\<hash>.html` and returns the path.
-2. The HTML is body produced by Mammoth + a self-contained `<script>` that walks text nodes and wraps matched terms in `<mark id="m0..N">`, then `scrollIntoView` to `#m0`.
+1. `Sho.App.Services.DocxPreviewService.Render(filePath, terms, darkTheme, scrollToMarkIndex)` writes a complete HTML page to `%LOCALAPPDATA%\sho\preview\<hash>.html` and returns the path.
+2. The HTML is body produced by Mammoth + a self-contained `<script>` that walks text nodes, wraps matched terms in `<mark id="m0..N">` (numbered in document order), and scrolls to `#m{markIndex}` (default 0). Match expansion: starts only at word boundaries and extends to the end of the word, so a stem like "ніколаєн" highlights all of "Ніколаєнка" / "НІКОЛАЄНКА".
 3. `MainWindow` registers a virtual host map: `https://sho-preview/` → preview directory. Nav uses `https://sho-preview/<hash>.html?t=<utc-ticks>` (timestamp busts WebView2's cache so re-rendering with new highlights always reloads).
 4. `NavigationCompleted` ignores `OperationCanceled` and `ConnectionAborted` (they fire on rapid row clicks where one nav cancels another) and only surfaces real errors as red text over the WebView.
+5. **Selection drives preview** via `MainViewModel`:
+   - SelectedFile changes → load that file, mark index = 0.
+   - SelectedHit changes → load hit's file (auto-selecting in Files panel) AND scroll to that hit's mark — `markIndex` = position of the hit among hits of its file (Lines is sorted by file order then line number, marks numbered in same order, so positions align).
+   - `_suppressSelectionSync` flag prevents recursive setter loops between SelectedFile ↔ SelectedHit.
+6. **Highlight terms** = user's literal split + `IndexedSearchEngine.AnalyzeToTokens(query)` lemmas + truncated stems (lemma minus 2 chars, only for ≥6-char lemmas). Stems bridge UA case-endings the simple substring search would miss.
 
 ## Critical gotchas
 
@@ -113,7 +121,7 @@ These cost real time to debug — keep them in mind:
 
 7. **Wpf.Ui style override loses theming.** `<Style TargetType="ui:Button">` without `BasedOn={StaticResource {x:Type ui:Button}}` replaces the entire Fluent style and you get plain WPF chrome. Always BasedOn when overriding Wpf.Ui control styles.
 
-8. **High-contrast results.** App-level `ResultsBackground` / `ResultsForeground` brushes are mutated in code on theme switch (`UpdateContrastBrushes`) — pure black/white in dark, white/black in light. DataGrid uses `{DynamicResource ...}` so they re-pick on every change.
+8. **DataGrid background = `SolidBackgroundFillColorBaseBrush`.** Same brush as the column header so rows, headers and the ScrollViewer track read as one surface. Old `ResultsBackground` / `ResultsForeground` keys still exist in App.xaml + `UpdateContrastBrushes` mutates them on theme switch, but the styles no longer reference them — kept dormant for backwards compat with any future override.
 
 9. **Encoding code pages.** CP1251/KOI8-U don't load in .NET Core by default. `Sho.Extractors/EncodingBootstrapper.cs` registers `CodePagesEncodingProvider` via `[ModuleInitializer]` so any consumer of `Encoding.GetEncoding(1251)` works without manual setup.
 
@@ -123,42 +131,52 @@ These cost real time to debug — keep them in mind:
 
 12. **Lucene CodePagesEncodingProvider also needed at runtime** when reading Cyrillic content (already wired by EncodingBootstrapper).
 
+13. **`UkrainianMorfologikAnalyzer` is sealed.** Cannot subclass to add a final `LowerCaseFilter` (its dict-cased lemmas otherwise break case-sensitive Wildcard / Fuzzy queries). Wrap via `Lucene.Net.Analysis.AnalyzerWrapper` instead — see `LowerUkrainianAnalyzer`.
+
+14. **`Progress<T>` callbacks marshal back to the captured SynchronizationContext.** If the heavy work runs on the UI thread (after `await Task.Yield()` continuations resume on UI), every progress report queues behind the work and the status bar looks frozen until the search finishes. `IndexedSearchEngine.SearchAsync` wraps Lucene + per-doc loop in `Task.Run` so reports actually flush to the UI mid-search.
+
+15. **Bulk-update `ObservableCollection` carefully.** Adding 5000 hits one by one fires CollectionChanged 5000× — DataGrid recomputes layout each time and the dispatcher locks long enough for Windows to flag "(Not Responding)" in the title. Use `BulkObservableCollection<T>.ReplaceAll` (single Reset notification) for search results.
+
+16. **Lucene `FuzzyQuery` defaults.** We use `maxEdits=1` everywhere (was 2 originally). Fuzzy=2 is too lenient for proper-noun search — Levenshtein("ніколаєнка","ніколаєва") = 2 → false positives. Lemma branch + dict already covers real UA inflections.
+
 ## Conventions
 
 - **Brevity in commits.** Subject ≤72 chars, focused on the *why* (root cause, not just "fix bug"). Trailing `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
 - **No emojis in code or commits** unless the user explicitly asks. (User guide does use occasional emoji for clarity, that's fine.)
 - **Tests first when feasible.** Adding a search-engine knob → add a test under `tests/Sho.Tests`.
 - **Localize all user-visible strings.** Add to both `Strings.uk.xaml` and `Strings.en.xaml`. Bindings use `{DynamicResource Str.Foo}` so language toggle is hot.
-- **No `.ico` file in repo** — `AppIconFactory` renders the icon programmatically from a `SymbolIcon` and assigns to both `Window.Icon` (taskbar / Alt-Tab) and `TitleBar.Icon` (favicon). If the user asks for a desktop-shortcut icon, an .ico will need to be generated.
+- **App icon** — runtime icon (`Window.Icon` / `TitleBar.Icon`) is rendered programmatically by `AppIconFactory` from a `SymbolIcon`. A multi-resolution `app.ico` (16/24/32/48/64/128/256, PNG-payload) is committed at `src/Sho.App/Resources/app.ico` and embedded as the Win32 ApplicationIcon (so desktop shortcuts and Explorer thumbnails show the icon without launching). To regenerate: `Shozilla.exe --write-icon src\Sho.App\Resources\app.ico` (same SymbolIcon render pipeline).
 
 ## Where things live
 
 | Concern | File(s) |
 |---|---|
-| Line/snippet matching | `src/Sho.Core/Text/LineMatcher.cs` |
+| Substring line/snippet matching (brute-force) | `src/Sho.Core/Text/LineMatcher.cs` |
+| Lemma-aware line/snippet matching (indexed, group-AND) | `src/Sho.Search/MorphologicalLineMatcher.cs` |
+| UA analyzer with lowercase lemmas | `src/Sho.Search/Analysis/LowerUkrainianAnalyzer.cs` |
 | Index path hashing | `src/Sho.Core/IO/PathHasher.cs` |
 | Brute-force search | `src/Sho.Search/BruteForceSearchEngine.cs` |
-| Lucene search + index | `src/Sho.Search/IndexedSearchEngine.cs` |
+| Lucene search + index + UA analyzer + sync | `src/Sho.Search/IndexedSearchEngine.cs` |
 | Recursive file enumerator | `src/Sho.Search/FileScanner.cs` |
+| FileSystemWatcher / incremental update | `src/Sho.App/Services/IndexWatcherService.cs` |
 | Format extractors | `src/Sho.Extractors/*.cs` (Plain, Pdf, Docx, Xlsx, Pptx, Rtf, Html, Doc, Xls) |
 | Encoding registration | `src/Sho.Extractors/EncodingBootstrapper.cs` |
 | MVVM ViewModel | `src/Sho.App/ViewModels/MainViewModel.cs` |
+| Bulk-replace ObservableCollection | `src/Sho.App/ViewModels/BulkObservableCollection.cs` |
 | Main UI | `src/Sho.App/MainWindow.xaml` + `.cs` |
 | Folder tree picker | `src/Sho.App/Views/FolderPickerWindow.xaml*` + `FolderTreeNode.cs` |
 | DOCX preview HTML builder | `src/Sho.App/Services/DocxPreviewService.cs` |
-| App icon (programmatic) | `src/Sho.App/Services/AppIconFactory.cs` |
+| App icon (programmatic + .ico writer) | `src/Sho.App/Services/AppIconFactory.cs` |
 | OS file-icon cache | `src/Sho.App/Services/FileIconCache.cs` |
 | Settings persistence | `src/Sho.App/Services/SettingsService.cs` |
 | Localization service | `src/Sho.App/Services/LocalizationService.cs` |
 | Resource dictionaries | `src/Sho.App/Resources/Strings.{uk,en}.xaml` |
 | Value converters | `src/Sho.App/Converters/Converters.cs` |
 | WPF/WinForms aliases | `src/Sho.App/Usings.cs` |
+| Bundled Win32 .ico | `src/Sho.App/Resources/app.ico` |
 
 ## Things consciously NOT done (potential follow-ups)
 
-- **Ukrainian/Russian morphology in indexed search.** Currently substring-only. Adding `MorfologikAnalyzer` or Hunspell would need a fresh index.
-- **Incremental re-indexing.** `BuildIndex` is always full-recreate (`OpenMode.CREATE`). A `FileSystemWatcher` + `IndexWriter.UpdateDocument` path is sketched in dev guide.
 - **OCR.** Scanned PDFs not indexed.
 - **`.doc` formatting.** UTF-16 strings extraction only, not full HWPF.
-- **Real `.ico` for desktop shortcuts.** App's runtime icon is programmatic.
 - **Preview for non-DOCX.** PDF would need PdfPig-rendered images or WebView2 PDF viewer; deferred.

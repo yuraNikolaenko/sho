@@ -11,6 +11,18 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        // Headless flag: regenerate the embedded app.ico without showing the UI.
+        // Usage: Shozilla.exe --write-icon "src\Sho.App\Resources\app.ico"
+        for (int i = 0; i < e.Args.Length; i++)
+        {
+            if (string.Equals(e.Args[i], "--write-icon", StringComparison.OrdinalIgnoreCase) && i + 1 < e.Args.Length)
+            {
+                AppIconFactory.WriteIcoFile(e.Args[i + 1]);
+                Shutdown(0);
+                return;
+            }
+        }
+
         Settings = SettingsService.Load();
 
         var theme = string.Equals(Settings.Theme, "Light", StringComparison.OrdinalIgnoreCase)

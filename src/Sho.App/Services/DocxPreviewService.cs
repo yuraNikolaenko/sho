@@ -35,27 +35,28 @@ public sealed class DocxPreviewService
     /// %LOCALAPPDATA%\sho\preview\ and return its absolute path. Always returns a path so
     /// the caller can navigate the WebView to file:// without size limits.
     /// </summary>
-    public string Render(string? filePath, IEnumerable<string>? highlightTerms, bool darkTheme, int? scrollToLineNumber = null)
+    public string Render(string? filePath, IEnumerable<string>? highlightTerms, bool darkTheme, int? scrollToMarkIndex = null)
     {
         string html;
         string key;
+        int markIdx = scrollToMarkIndex.GetValueOrDefault(0);
 
         if (string.IsNullOrEmpty(filePath))
         {
             html = WrapHtml("<p style='opacity:0.6'>Select a line or a file to preview.</p>",
-                Array.Empty<string>(), darkTheme);
+                Array.Empty<string>(), darkTheme, 0);
             key = "empty";
         }
         else if (!IsSupported(filePath))
         {
             html = WrapHtml("<p style='opacity:0.6'>Preview is available only for .docx files.</p>",
-                Array.Empty<string>(), darkTheme);
+                Array.Empty<string>(), darkTheme, 0);
             key = "notsupported";
         }
         else if (!File.Exists(filePath))
         {
             html = WrapHtml("<p style='opacity:0.6'>File not found.</p>",
-                Array.Empty<string>(), darkTheme);
+                Array.Empty<string>(), darkTheme, 0);
             key = "missing";
         }
         else
@@ -68,7 +69,7 @@ public sealed class DocxPreviewService
                 .Where(t => !string.IsNullOrWhiteSpace(t))
                 .Distinct()
                 .ToList();
-            html = WrapHtml(bodyHtml, terms, darkTheme);
+            html = WrapHtml(bodyHtml, terms, darkTheme, markIdx);
             key = Sho.Core.IO.PathHasher.Hash(filePath);
         }
 
@@ -92,7 +93,7 @@ public sealed class DocxPreviewService
         }
     }
 
-    private static string WrapHtml(string body, IReadOnlyList<string> terms, bool darkTheme)
+    private static string WrapHtml(string body, IReadOnlyList<string> terms, bool darkTheme, int targetMarkIndex)
     {
         string bg = darkTheme ? "#1e1e1e" : "#ffffff";
         string fg = darkTheme ? "#e8e8e8" : "#1f1f1f";
@@ -120,6 +121,8 @@ public sealed class DocxPreviewService
           .Append("const terms=").Append(termsJson).Append(";")
           .Append("if(!terms.length)return;")
           .Append("const lower=terms.map(t=>t.toLowerCase());")
+          // Letter test covers Cyrillic, Latin, digits — used to detect word boundaries.
+          .Append("const isLetter=ch=>/[\\u0400-\\u04FF\\u0500-\\u052Fa-zA-Z\\d]/.test(ch);")
           .Append("const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,null);")
           .Append("const nodes=[];let n;while(n=walker.nextNode()){")
           .Append("if(!n.parentElement)continue;")
@@ -129,7 +132,17 @@ public sealed class DocxPreviewService
           .Append("for(const tn of nodes){")
           .Append("const text=tn.nodeValue;const lo=text.toLowerCase();")
           .Append("const positions=[];")
-          .Append("for(const t of lower){let i=0;while((i=lo.indexOf(t,i))!==-1){positions.push([i,i+t.length]);i+=t.length||1;}}")
+          // For each term, find substring matches that begin on a word boundary,
+          // then extend the right edge to the end of the word. So a stem like
+          // "ніколаєн" highlights all of "Ніколаєнка" / "НІКОЛАЄНКА" / "Ніколаєнку".
+          .Append("for(const t of lower){")
+          .Append("let i=0;while((i=lo.indexOf(t,i))!==-1){")
+          .Append("const wordStart=i===0||!isLetter(lo[i-1]);")
+          .Append("if(!wordStart){i+=1;continue;}")
+          .Append("let e=i+t.length;while(e<text.length&&isLetter(text[e]))e++;")
+          .Append("positions.push([i,e]);")
+          .Append("i=e>i?e:i+1;")
+          .Append("}}")
           .Append("if(!positions.length)continue;")
           .Append("positions.sort((a,b)=>a[0]-b[0]);")
           .Append("const merged=[];for(const p of positions){if(merged.length&&merged[merged.length-1][1]>p[0]){merged[merged.length-1][1]=Math.max(merged[merged.length-1][1],p[1]);}else{merged.push([...p]);}}")
@@ -138,8 +151,9 @@ public sealed class DocxPreviewService
           .Append("const m=document.createElement('mark');m.id='m'+counter++;m.textContent=text.substring(s,e);frag.appendChild(m);last=e;}")
           .Append("if(last<text.length)frag.appendChild(document.createTextNode(text.substring(last)));")
           .Append("tn.parentNode.replaceChild(frag,tn);}")
-          .Append("const first=document.getElementById('m0');")
-          .Append("if(first){first.classList.add('current');first.scrollIntoView({block:'center',behavior:'instant'});}")
+          .Append("const target=document.getElementById('m").Append(targetMarkIndex).Append("')")
+          .Append("||document.getElementById('m0');")
+          .Append("if(target){target.classList.add('current');target.scrollIntoView({block:'center',behavior:'instant'});}")
           .Append("})();</script>")
           .Append("</body></html>");
         return sb.ToString();

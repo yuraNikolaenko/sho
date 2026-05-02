@@ -30,6 +30,8 @@ public partial class MainWindow : FluentWindow
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         Vm.ShowPreview = App.Settings.ShowPreview;
+        Vm.AutoUpdateIndex = App.Settings.AutoUpdateIndex;
+        Vm.CompactMode = App.Settings.CompactMode;
         Vm.SetDarkTheme(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
 
         var folders = App.Settings.LastFolders ?? new List<string>();
@@ -54,11 +56,14 @@ public partial class MainWindow : FluentWindow
         };
 
         Vm.PropertyChanged += OnVmPropertyChanged;
+        Vm.SelectedFileChanged += OnVmSelectedFileChanged;
+        Closed += (_, _) => { try { Vm.Watcher.Dispose(); } catch { } };
 
         UpdateThemeIcon();
         UpdateLanguageLabel();
         UpdatePreviewButton();
         UpdatePreviewLayout();
+        UpdateCompactToggleIcon();
         UpdateContrastBrushes(ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark);
 
         if (Vm.ShowPreview) await EnsureWebViewAsync();
@@ -78,6 +83,59 @@ public partial class MainWindow : FluentWindow
         {
             NavigatePreview(Vm.PreviewFilePath);
         }
+        else if (e.PropertyName == nameof(MainViewModel.AutoUpdateIndex))
+        {
+            App.Settings.AutoUpdateIndex = Vm.AutoUpdateIndex;
+            App.SettingsService.Save(App.Settings);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.CompactMode))
+        {
+            App.Settings.CompactMode = Vm.CompactMode;
+            App.SettingsService.Save(App.Settings);
+        }
+    }
+
+    private void OnVmSelectedFileChanged(object? sender, Sho.Core.Models.FileSummary? file)
+    {
+        // When the toggle is off, scrolling to the first matching row makes the
+        // bold-row highlight discoverable in long Lines panels. With the toggle on
+        // there's nothing to scroll to — the filter already moves the rows up.
+        if (file == null || Vm.OnlySelectedFileLines) return;
+        var firstHit = Vm.Lines.FirstOrDefault(l =>
+            string.Equals(l.FilePath, file.FilePath, StringComparison.OrdinalIgnoreCase));
+        if (firstHit == null) return;
+        // Defer to dispatcher so the row exists in visual tree after any pending
+        // CollectionView refresh.
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try { LinesGrid.ScrollIntoView(firstHit); } catch { }
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void CompactToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        Vm.CompactMode = !Vm.CompactMode;
+        UpdateCompactToggleIcon();
+    }
+
+    private void UpdateCompactToggleIcon()
+    {
+        CompactToggleButton.Icon = new SymbolIcon
+        {
+            Symbol = Vm.CompactMode ? SymbolRegular.ChevronDown24 : SymbolRegular.ChevronUp24
+        };
+        CompactToggleButton.ToolTip =
+            (string)Application.Current.Resources["Str.CompactModeTooltip"];
+    }
+
+    private void AiAnalysisButton_Click(object sender, RoutedEventArgs e)
+    {
+        // Placeholder for the local-LLM analysis hooked up in a future session.
+        System.Windows.MessageBox.Show(
+            (string)Application.Current.Resources["Str.AiAnalysisStub"],
+            (string)Application.Current.Resources["Str.AppTitle"],
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Information);
     }
 
     private void QueryComboBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -271,15 +329,21 @@ public partial class MainWindow : FluentWindow
         if (Vm.ShowPreview) await EnsureWebViewAsync();
     }
 
+    // Remembers the user's last-resized preview-row height so toggling the panel
+    // off and back on doesn't snap to the default 3*. Updated whenever we collapse.
+    private GridLength _savedPreviewRowHeight = new GridLength(3, GridUnitType.Star);
+
     private void UpdatePreviewLayout()
     {
         if (Vm.ShowPreview)
         {
             PreviewSplitterRow.Height = GridLength.Auto;
-            PreviewRow.Height = new GridLength(3, GridUnitType.Star);
+            PreviewRow.Height = _savedPreviewRowHeight;
         }
         else
         {
+            // Capture current size so re-enabling restores it.
+            if (PreviewRow.Height.Value > 0) _savedPreviewRowHeight = PreviewRow.Height;
             PreviewSplitterRow.Height = new GridLength(0);
             PreviewRow.Height = new GridLength(0);
         }

@@ -5,12 +5,26 @@
         xmlns:vm="clr-namespace:Sho.App.ViewModels"
         xmlns:conv="clr-namespace:Sho.App.Converters"
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="{DynamicResource Str.AppTitle}"
         Height="760" Width="1280"
+        MinHeight="380" MinWidth="640"
         WindowStartupLocation="CenterScreen"
         WindowBackdropType="Mica"
         ExtendsContentIntoTitleBar="True"
+        ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI Variable" FontSize="13">
+    <!-- Force a thicker resize border so the bottom/top edges are easy to grab.
+         FluentWindow's default chrome has a thin resize area that can be hard to
+         hit with a mouse on a high-DPI display. -->
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome
+            ResizeBorderThickness="8"
+            CaptionHeight="28"
+            GlassFrameThickness="0"
+            CornerRadius="0"
+            UseAeroCaptionButtons="False"/>
+    </shell:WindowChrome.WindowChrome>
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:PathToFileNameConverter x:Key="PathToFileNameConverter"/>
@@ -21,8 +35,10 @@
         <conv:StringsEqualConverter x:Key="StringsEqualConverter"/>
 
         <Style x:Key="ResultsDataGrid" TargetType="DataGrid">
-            <Setter Property="Background" Value="{DynamicResource ResultsBackground}"/>
-            <Setter Property="Foreground" Value="{DynamicResource ResultsForeground}"/>
+            <!-- Background matches the column-header brush so headers, rows and the
+                 ScrollViewer track read as one unified surface. -->
+            <Setter Property="Background" Value="{DynamicResource SolidBackgroundFillColorBaseBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
             <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="VerticalContentAlignment" Value="Top"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -129,14 +145,59 @@
 
         <ui:TitleBar Grid.Row="0"
                      Title="{DynamicResource Str.AppTitle}"
+                     Height="28"
                      ShowMaximize="True" ShowMinimize="True">
             <ui:TitleBar.Icon>
-                <ui:SymbolIcon Symbol="SearchInfo24" Foreground="#FF5722"/>
+                <ui:SymbolIcon Symbol="SearchInfo24" Foreground="#FF5722" FontSize="14"/>
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
         <ui:Card Grid.Row="1" Margin="16,0,16,4" Padding="10">
-            <Grid>
+            <DockPanel LastChildFill="True" Grid.IsSharedSizeScope="True">
+
+                <!-- Always-visible search row.
+                     Compact toggle (sidebar collapse) lives next to Search button so
+                     the user can shrink the toolbar without losing this row. -->
+                <Grid DockPanel.Dock="Top">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ButtonCol"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                               MinWidth="100"
+                               Text="{DynamicResource Str.Find}"/>
+                    <ComboBox Grid.Column="1"
+                              x:Name="QueryComboBox"
+                              IsEditable="True"
+                              IsTextSearchEnabled="False"
+                              StaysOpenOnEdit="True"
+                              Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                              ItemsSource="{Binding QueryHistory}"
+                              KeyDown="QueryComboBox_KeyDown"
+                              FontSize="13"
+                              Height="32"
+                              VerticalContentAlignment="Center"/>
+                    <ui:Button Grid.Column="2"
+                               Margin="6,0,0,0" Padding="0"
+                               Width="32" Height="32"
+                               Click="CompactToggleButton_Click"
+                               x:Name="CompactToggleButton"
+                               ToolTip="{DynamicResource Str.CompactModeTooltip}"
+                               Icon="{ui:SymbolIcon ChevronUp24}"/>
+                    <ui:Button Grid.Column="3" Content="{DynamicResource Str.Search}"
+                               Margin="6,0,0,0" Padding="12,0"
+                               MinWidth="160"
+                               Height="32"
+                               HorizontalContentAlignment="Center"
+                               Appearance="Primary"
+                               Command="{Binding SearchCommand}" IsDefault="True"
+                               Icon="{ui:SymbolIcon Search24}"/>
+                </Grid>
+
+                <!-- Everything else: collapses in compact mode. -->
+                <Grid Margin="0,6,0,0" Visibility="{Binding ExpandedToolbarVisibility}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="320"/>
                     <ColumnDefinition Width="8"/>
@@ -148,47 +209,61 @@
                 </Grid.ColumnDefinitions>
 
                 <Grid Grid.Column="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="LabelCol"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="ButtonCol"/>
+                    </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="6"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <DockPanel Grid.Row="0">
-                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.Search}"
-                                   Margin="6,0,0,0" Padding="18,3"
-                                   Appearance="Primary"
-                                   Command="{Binding SearchCommand}" IsDefault="True"
-                                   Icon="{ui:SymbolIcon Search24}"/>
-                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Text="{DynamicResource Str.Find}" Width="56"/>
-                        <ComboBox x:Name="QueryComboBox"
-                                  IsEditable="True"
-                                  IsTextSearchEnabled="False"
-                                  StaysOpenOnEdit="True"
-                                  Text="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
-                                  ItemsSource="{Binding QueryHistory}"
-                                  KeyDown="QueryComboBox_KeyDown"
-                                  FontSize="14"
-                                  VerticalContentAlignment="Center"/>
-                    </DockPanel>
+                    <!-- Row 0: Folder selection -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                               MinWidth="100"
+                               Text="{DynamicResource Str.Folders}"/>
+                    <Border Grid.Row="0" Grid.Column="1"
+                            BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                            BorderThickness="1" CornerRadius="4"
+                            Padding="8,0"
+                            Height="32"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding FolderSummary}"
+                                   Opacity="0.8"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <ui:Button Grid.Row="0" Grid.Column="2" Content="{DynamicResource Str.ChooseFolders}"
+                               Margin="6,0,0,0" Padding="12,0"
+                               MinWidth="160"
+                               Height="32"
+                               HorizontalContentAlignment="Center"
+                               Click="ChooseFoldersButton_Click"
+                               Icon="{ui:SymbolIcon FolderOpen24}"/>
 
-                    <DockPanel Grid.Row="2">
-                        <ui:Button DockPanel.Dock="Right" Content="{DynamicResource Str.ChooseFolders}"
-                                   Margin="6,0,0,0" Padding="12,3"
-                                   Click="ChooseFoldersButton_Click"
-                                   Icon="{ui:SymbolIcon FolderOpen24}"/>
-                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,8,0"
-                                   Text="{DynamicResource Str.Folders}" Width="56"/>
-                        <Border BorderBrush="{DynamicResource ControlElevationBorderBrush}"
-                                BorderThickness="1" CornerRadius="4"
-                                Padding="8,5" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding FolderSummary}"
-                                       Opacity="0.8"
-                                       TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center"/>
-                        </Border>
-                    </DockPanel>
+                    <!-- Row 2: Path filter -->
+                    <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0"
+                               MinWidth="100"
+                               Text="{DynamicResource Str.FilterPath}"/>
+                    <ui:TextBox Grid.Row="2" Grid.Column="1"
+                                Text="{Binding PathFilterText, UpdateSourceTrigger=PropertyChanged, Delay=200}"
+                                ToolTip="{DynamicResource Str.FilterPathTooltip}"
+                                PlaceholderText="{DynamicResource Str.FilterPathPlaceholder}"
+                                VerticalContentAlignment="Center"
+                                Height="32"
+                                Padding="6,0"
+                                Icon="{ui:SymbolIcon Filter24}"/>
+                    <ui:Button Grid.Row="2" Grid.Column="2"
+                               Margin="6,0,0,0" Padding="12,0"
+                               MinWidth="160"
+                               Height="32"
+                               HorizontalContentAlignment="Center"
+                               Content="{DynamicResource Str.ClearFilter}"
+                               Command="{Binding ClearPathFilterCommand}"
+                               Icon="{ui:SymbolIcon Dismiss24}"
+                               ToolTip="{DynamicResource Str.FilterPathTooltip}"/>
                 </Grid>
 
                 <Border Grid.Column="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -201,6 +276,9 @@
                               IsChecked="{Binding CaseSensitive}" Margin="0,2"/>
                     <CheckBox Content="{DynamicResource Str.WholeWord}"
                               IsChecked="{Binding WholeWord}" Margin="0,2"/>
+                    <CheckBox Content="{DynamicResource Str.AutoUpdateIndex}"
+                              IsChecked="{Binding AutoUpdateIndex}" Margin="0,2"
+                              ToolTip="{DynamicResource Str.AutoUpdateIndexTooltip}"/>
                 </StackPanel>
 
                 <Border Grid.Column="3" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
@@ -210,15 +288,19 @@
                     <StackPanel.Resources>
                         <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                             <Setter Property="Width" Value="190"/>
-                            <Setter Property="Height" Value="28"/>
-                            <Setter Property="Padding" Value="8,2"/>
-                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Height" Value="32"/>
+                            <Setter Property="Padding" Value="8,0"/>
+                            <Setter Property="Margin" Value="0,1"/>
                             <Setter Property="HorizontalContentAlignment" Value="Left"/>
                         </Style>
                     </StackPanel.Resources>
                     <ui:Button Content="{DynamicResource Str.BuildIndex}"
                                Command="{Binding BuildIndexCommand}"
                                Icon="{ui:SymbolIcon DatabaseSearch24}"/>
+                    <ui:Button Content="{DynamicResource Str.UpdateIndex}"
+                               Command="{Binding UpdateIndexCommand}"
+                               ToolTip="{DynamicResource Str.UpdateIndexTooltip}"
+                               Icon="{ui:SymbolIcon ArrowSync24}"/>
                     <ui:Button Content="{DynamicResource Str.DeleteIndex}"
                                Command="{Binding DeleteIndexCommand}"
                                Icon="{ui:SymbolIcon Delete24}"/>
@@ -234,9 +316,9 @@
                     <StackPanel.Resources>
                         <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
                             <Setter Property="MinWidth" Value="110"/>
-                            <Setter Property="Height" Value="28"/>
-                            <Setter Property="Padding" Value="8,2"/>
-                            <Setter Property="Margin" Value="0,2"/>
+                            <Setter Property="Height" Value="32"/>
+                            <Setter Property="Padding" Value="8,0"/>
+                            <Setter Property="Margin" Value="0,1"/>
                             <Setter Property="HorizontalContentAlignment" Value="Left"/>
                         </Style>
                     </StackPanel.Resources>
@@ -258,8 +340,14 @@
                                ToolTip="{DynamicResource Str.PreviewToggleTooltip}"
                                Content="{DynamicResource Str.Preview}"
                                Icon="{ui:SymbolIcon Eye24}"/>
+                    <ui:Button x:Name="AiModeButton"
+                               Click="AiAnalysisButton_Click"
+                               ToolTip="{DynamicResource Str.AiAnalysisTooltip}"
+                               Content="{DynamicResource Str.AiMode}"
+                               Icon="{ui:SymbolIcon Sparkle24}"/>
                 </StackPanel>
-            </Grid>
+                </Grid>
+            </DockPanel>
         </ui:Card>
 
         <Grid Grid.Row="2" Margin="16,4,16,4">
@@ -336,8 +424,17 @@
                         CornerRadius="8"
                         VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
                     <DockPanel LastChildFill="True">
-                        <TextBlock DockPanel.Dock="Top" Margin="14,10,14,6" FontWeight="SemiBold"
-                                   Text="{DynamicResource Str.LinesGroup}"/>
+                        <DockPanel DockPanel.Dock="Top" Margin="14,10,14,6">
+                            <CheckBox DockPanel.Dock="Right"
+                                      Content="{DynamicResource Str.OnlySelectedFile}"
+                                      ToolTip="{DynamicResource Str.OnlySelectedFileTooltip}"
+                                      IsChecked="{Binding OnlySelectedFileLines}"
+                                      VerticalAlignment="Center"
+                                      Padding="6,0,0,0" FontSize="12" Opacity="0.85"
+                                      MinHeight="0" Height="18"/>
+                            <TextBlock FontWeight="SemiBold" VerticalAlignment="Center"
+                                       Text="{DynamicResource Str.LinesGroup}"/>
+                        </DockPanel>
                         <DataGrid Style="{StaticResource LinesDataGrid}"
                                   ItemsSource="{Binding Lines}"
                                   SelectedItem="{Binding SelectedHit, Mode=TwoWay}"
@@ -406,13 +503,18 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusText}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            FontSize="11" Opacity="0.85"/>
-                <Border Grid.Column="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                <TextBlock Grid.Column="1" Text="{Binding FilterCountsText}"
+                           VerticalAlignment="Center" Margin="10,0,0,0"
+                           FontSize="11" Opacity="0.7"/>
+                <Border Grid.Column="2" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1,0,0,0" Margin="10,2,10,2"/>
-                <TextBlock Grid.Column="2" Text="{Binding IndexInfoText}"
+                <TextBlock Grid.Column="3" Text="{Binding IndexInfoText}"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            FontSize="11" Opacity="0.85"
                            Foreground="{Binding IndexExists, Converter={StaticResource BoolToBrushConverter}}"/>

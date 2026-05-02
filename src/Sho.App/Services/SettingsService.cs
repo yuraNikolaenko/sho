@@ -11,6 +11,8 @@ public sealed class AppSettings
     public List<string> LastFolders { get; set; } = new();
     public bool ShowPreview { get; set; } = true;
     public List<string> QueryHistory { get; set; } = new();
+    public bool AutoUpdateIndex { get; set; } = true;
+    public bool CompactMode { get; set; }
 }
 
 public sealed class SettingsService
