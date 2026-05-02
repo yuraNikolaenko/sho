@@ -1,4 +1,4 @@
-# Стек-незалежний промт для AI: портування `sho` на інший стек
+# Стек-незалежний промт для AI: портування Shozilla на інший стек
 
 Скопіюй усе нижче (від рядка `=== BEGIN PROMPT ===`) і додай до запиту до AI разом із цільовим стеком ("портуй на Electron + TypeScript", "на Python + PyQt", "на Go + Fyne" тощо).
 
@@ -6,7 +6,7 @@
 
 ```
 === BEGIN PROMPT ===
-Ти — AI-помічник з портування десктопного застосунку «sho» з .NET 9/WPF на інший
+Ти — AI-помічник з портування десктопного застосунку «Shozilla» з .NET 9/WPF на інший
 стек/мову. Збережи функціональність 1:1, заміни лише імплементаційні залежності.
 Нижче — нейтральний опис застосунку і його контракти.
 
@@ -18,27 +18,43 @@
 ЩО ЦЕ
 ============================================================================
 Десктопна програма для пошуку текстових збігів у документах усередині
-обраної папки (рекурсивно). Два режими: (1) перебірне сканування та
-(2) пошук по заздалегідь побудованому повнотекстовому індексу.
+обраних папок (рекурсивно, на одному або кількох дисках). Два режими:
+(1) перебірне сканування та (2) пошук по заздалегідь побудованому
+повнотекстовому індексу. Інлайн-прев'ю DOCX-файлів із підсвічуванням
+збігів і авто-скролом до знахідки.
 
 ============================================================================
 СЦЕНАРІЇ
 ============================================================================
-S1. Користувач натискає «Browse» → вибирає кореневу папку.
+S1. Користувач натискає «Choose folders» → відкривається діалог із деревом
+    усієї файлової системи (диски в корені, кожна папка з чекбоксом, lazy
+    expansion). Користувач позначає одну або кілька папок (можна на різних
+    дисках) → OK.
 S2. (Опційно) натискає «Build index» → програма обходить усі підтримувані
-    файли, дістає plain-text і складає у локальний повнотекстовий індекс
-    у user-local cache (наприклад, %LOCALAPPDATA% / ~/.cache).
-S3. У полі пошуку вводить запит ("Ніколаенко" або "Ніколаенко Юрій
-    Вікторович") і натискає Enter.
+    файли в наборі коренів, дістає plain-text і складає у локальний
+    повнотекстовий індекс у user-local cache (наприклад, %LOCALAPPDATA% /
+    ~/.cache). Поряд із індексом пишеться meta.json із датою збірки і
+    кількістю проіндексованих документів.
+S3. У полі пошуку (editable combobox із історією попередніх запитів)
+    вводить запит ("Ніколаенко" або "Ніколаенко Юрій Вікторович") і
+    натискає Enter. Запит дописується в історію і зберігається між
+    сесіями.
 S4. Програма повертає два списки одночасно:
     a) Files: унікальні файли, де є збіг, з кількістю збігів і метаданими
-       (path, ext, size, mtime).
+       (path, ext, size, mtime). Іконка з системного registry для розширення.
     b) Lines: усі окремі рядки з документів, що містять збіг, із
        контекстом ±N символів навколо збігу для розуміння контексту.
-S5. Подвійний клік на елементі будь-якого списку → відкриває документ
+S5. Якщо вибраний файл / рядок належить .docx — у третій панелі праворуч
+    знизу рендериться сам документ (DOCX→HTML→WebView) із підсвіченими
+    збігами і авто-скролом до першого. Toggle "Preview" вмикає/вимикає
+    панель.
+S6. Подвійний клік на елементі будь-якого списку → відкриває документ
     у програмі ОС за замовчуванням (Word/PDF reader/тощо).
-S6. Контекстне меню: Open, Reveal in file manager, Copy path.
-S7. Прогрес довгих операцій + кнопка Cancel.
+S7. Контекстне меню: Open, Reveal in file manager, Copy path.
+S8. Прогрес довгих операцій (індексація, brute-force scan) із
+    file-per-second, ETA, і "(Xs on this file)" — кожні 0.5 с heartbeat
+    оновлює лічильник коли один файл обробляється довго.
+S9. Кнопка Cancel перериває поточну операцію.
 
 ============================================================================
 КОНТРАКТИ ДОМЕНУ (мова-незалежно)
@@ -72,6 +88,12 @@ SearchResult:
 IndexProgress:
   filesProcessed, filesTotal: int
   currentFile, stage: string | null
+  elapsedMs: int                  # від початку операції
+
+IndexMetadata:
+  builtUtc:        timestamp
+  documentCount:   int
+  rootFolders:     string[]
 
 ITextExtractor (інтерфейс плагінів формату):
   canHandle(path) -> bool
@@ -79,12 +101,20 @@ ITextExtractor (інтерфейс плагінів формату):
 
 ISearchEngine:
   name -> string
-  searchAsync(rootFolder, query, progress, ct) -> SearchResult
+  searchAsync(rootFolders[], query, progress, ct) -> SearchResult
 
 IIndexedSearchEngine extends ISearchEngine:
-  buildIndexAsync(rootFolder, progress, ct)
-  isIndexBuiltAsync(rootFolder, ct) -> bool
-  deleteIndexAsync(rootFolder, ct)
+  buildIndexAsync(rootFolders[], progress, ct)
+  isIndexBuiltAsync(rootFolders[], ct) -> bool
+  deleteIndexAsync(rootFolders[], ct)
+  getIndexMetadataAsync(rootFolders[], ct) -> IndexMetadata | null
+
+DocxPreviewService:
+  isSupported(path) -> bool
+  render(path, highlightTerms, darkTheme) -> resourcePath
+    # повертає шлях до згенерованого HTML файлу (або URI, якщо рендер
+    # in-memory). HTML містить вбудований CSS + JS для підсвічування
+    # збігів і scrollIntoView. Кеш по path+mtime.
 
 ============================================================================
 АЛГОРИТМ ЗБІГУ РЯДКА (детермінований, обов'язковий)
@@ -110,6 +140,31 @@ function findHits(text, query) -> Iterable<SearchHit>:
       позиція = idx + max(1, len(query.text))
 
 ============================================================================
+ХЕШ НАБОРУ КОРЕНЕВИХ ПАПОК (для location індексу)
+============================================================================
+function hashRoots(paths) -> string:
+  normalized = paths
+    .map(p => fullpath(p).trimEnd(['\\','/']).toLowerCase())
+    .filter(nonEmpty).distinct().sort()
+  joined = normalized.join('|')
+  return sha256(joined).hexFirst8Bytes  # 16 hex chars
+
+# Однаковий набір коренів (незалежно від порядку) → один індекс.
+
+============================================================================
+МУЛЬТИ-КОРЕНЕВИЙ DEDUPE
+============================================================================
+function dedupeRoots(paths) -> string[]:
+  fullpaths = paths.map(p => fullpath(p).trimEnd(['\\','/']))
+  unique = fullpaths.distinct().sort(by length asc)
+  result = []
+  for r in unique:
+    covered = result.any(k => r != k && r.startsWith(k + sep))
+    if !covered: result.push(r)
+  return result
+# Якщо позначені і "C:\Docs", і "C:\Docs\Tax", другий ігнорується.
+
+============================================================================
 ПІДТРИМУВАНІ ФОРМАТИ ТА ЕКСТРАКТОРИ
 ============================================================================
 - Звичайний текст / код / log:
@@ -119,6 +174,7 @@ function findHits(text, query) -> Iterable<SearchHit>:
   Імплементація: читай байти, детектуй кодування (UTF-8 BOM, UTF-16,
   CP1251, KOI8-U, ISO-8859-*) — використовуй бібліотеку детекту chardet/uchardet
   або еквівалент. Обмежуй читання 64 МБ на файл.
+    .pdf .doc .docx .xls .xlsx .pptx .rtf
 - HTML: .html .htm .xhtml — видали <script>/<style>, потім всі теги,
   HTML-decode сутності.
 - PDF: .pdf — текстовий шар (без OCR). У JS — pdfjs-dist; у Python —
@@ -143,52 +199,112 @@ function findHits(text, query) -> Iterable<SearchHit>:
 ДВА ДВИГУНИ
 ============================================================================
 BruteForceEngine:
-  - рекурсивно перерахуй файли з фільтром розширень
+  - dedupeRoots(rootFolders)
+  - для кожного кореня рекурсивно перерахуй файли з фільтром розширень
     (пропускай $RECYCLE.BIN, System Volume Information, прихов. сис. папки)
+  - дедуплікуй за path (на випадок overlapping ancestors)
   - паралельно (worker pool ≈ N_CPU) для кожного файлу:
       extractor = registry.resolve(path)  // null → skip
       text = extractor.extractAsync(...)
       hits = findHits(text, query)
   - агрегуй FileSummary та SearchHit, повертай SearchResult
+  - звітуй прогрес ПЕРЕД обробкою файлу (не batch-ом)
 
 IndexedEngine:
-  - location: <user-local-cache>/<app>/indexes/<sha256_prefix(rootFolderPath)>/
+  - location: <user-local-cache>/<app>/indexes/<hashRoots(rootFolders)>/
   - buildIndex: повна переіндексація: створи індекс із полями
       path (string, indexed=NO, stored=YES)
       ext  (string, stored=YES)
       size (long,   stored=YES)
       mtime (long,  stored=YES)
       content (text, indexed=YES, stored=YES, analyzer=стандартний)
+    Після Commit → пиши meta.json із builtUtc, documentCount, rootFolders.
   - searchQuery → побудова запиту:
       Якщо в q.text є будь-який з: + - " ( ) * ? ~ ^ : \ [ ] { }
       або слова AND / OR / NOT → ПРОПУСТИТИ через рідний QueryParser
       бекенду (Lucene-syntax: phrase, boolean, wildcard, fuzzy, fields).
+      Пост-процес: TermQuery / single-term PhraseQuery → wildcard *term*
+      (так "single-word" квотовані пошуки знаходять інфлектовані форми).
       1 термін → wildcard "*term*" (substring) через content
       2+ термінів → phrase query через content із slop=0
   - search: візьми top-N (>=maxLineHits), для кожного дістань content
-    зі store, прогни через findHits → точні позиції і снипети
+    зі store; витягни чисті matcher-терми з parsed query (TermQuery,
+    WildcardQuery без */?, PrefixQuery, FuzzyQuery, single-term Phrase,
+    BooleanQuery без MUST_NOT) і прогни кожен через findHits → точні
+    позиції в рядках і снипети, що відповідають оригінальному наміру.
   - deleteIndex: рекурсивно видали папку індексу
   - isIndexBuilt: папка існує і не порожня
+
+============================================================================
+DOCX PREVIEW
+============================================================================
+Конвертер DOCX → HTML (Mammoth.js / mammoth.NET / python-docx2html /
+pandoc), тіло обертай у повну сторінку з:
+  - theme-aware CSS (dark = white text on black, light = black on white)
+  - <mark> для підсвічування
+  - inline <script> що проходить text-нодами (TreeWalker), знаходить
+    кожен term (case-insensitive), обертає у <mark id="m0..N"> і робить
+    scrollIntoView({block:'center'}) до #m0
+Запис у файл (не in-memory string), бо WebView ліміт ~2 МБ для
+NavigateToString. Кеш HTML body по filePath + mtime.
+
+WebView повинен мати спосіб обходу обмеження локальних файлів:
+- Edge WebView2: SetVirtualHostNameToFolderMapping("preview-host",
+  cacheDir, Allow), потім нав на https://preview-host/<file>?t=<ts>.
+- Electron: file:// працює напряму (інша security model).
+- WebKit / GTK: webkit_web_view_load_uri із file:// — працює, перевірити
+  CORS для лок. ресурсів.
 
 ============================================================================
 UI (фреймворк-незалежно)
 ============================================================================
 Layout (зверху вниз):
-  [TitleBar]: app title + theme toggle (Light/Dark) + language combo (UA/EN)
-  [Folder]: text input + [Browse…] (відкриває діалог вибору папки)
-  [Find]:   text input (Enter = Search) + [Search]
-  Опції: ☐Use index  ☐Match case  ☐Whole word
-         статус індексу: "Index: built" / "Index: not built"
-         праворуч: [Build index] [Delete index] [Cancel]
-  Розділена область:
-    лівий список «Files (matches)»: File | Hits | Ext | Modified
-    правий список «Lines (context)»: File | Line | Snippet
-  Статус-бар: текст + прогрес-бар, видимий поки isBusy
+  [TitleBar]: app icon (favicon) + назва "Shozilla"
+  [Settings panel] — 4 вертикальні підпанелі, розділені тонкими лініями:
+    [1] Inputs (verticaly):
+        [Find]:   editable combobox із dropdown історії → [Search]
+        [Folders]: read-only summary "N folders" → [Choose folders…]
+    [2] Checkboxes: ☐Use index ☐Match case ☐Whole word
+    [3] Index commands: [Build index] [Delete index] [Cancel]
+    [4] Toolbar: [Theme toggle] [Language toggle] [Preview toggle]
+  [Results area]: Files panel | (Lines panel / Preview panel)
+    лівий список «Files (matches)»: icon | File | Hits | Path | Modified
+    правий-верхній «Lines (context)»: File | Line | Snippet
+    правий-нижній «DOCX preview»: WebView (тільки для .docx)
+  [Status bar]:
+    тонкий progress (3px, лише при busy)
+    [search stats — текст] | [Index info — стан + дата + кількість файлів]
+
+Поведінка:
+  - Click на файлі ліворуч → у Lines рядки цього файлу стають bold
+    (інші лишаються видимими, не фільтруються).
+  - Click на рядку у Lines → preview показує DOCX зі скролом до знайденого.
+  - DoubleClick → відкрити файл у дефолтній програмі ОС.
+  - Right-click → Open / Reveal in Explorer / Copy path.
+  - Cancel → cancel поточної операції (cancelable token / abort signal).
+  - На зміну folders → перевір чи побудовано індекс і онови індикатор.
+  - Splitter між Files і Right column, splitter між Lines і Preview.
+  - Preview off → Preview row collapsed (height 0); Lines panel розтягуєт
+    ься на повну праву висоту.
+
+Folder picker діалог:
+  - TreeView, корені = всі диски системи (на Windows DriveInfo;
+    на Unix `/` як єдиний корінь).
+  - Lazy load дочірніх папок при першому розкритті.
+  - Кожна папка має чекбокс, незалежний (не пропагує до descendants).
+  - При відкритті: якщо є попередньо вибрані папки — розкривається
+    тільки гілка до них; решта згорнуто. Без вибору — все згорнуто.
+  - OK: збираємо всі checked, дедуплікуємо descendants чиї ancestors
+    теж checked (см. dedupeRoots алгоритм).
+  - "Clear all" — швидке зняття галочок.
 
 Налаштування (persist у user-local JSON):
-  theme:     "Light" | "Dark" (default Dark)
-  language:  ISO code, дефолт "uk", альтернативи "en", + (свій список)
-  lastFolder: string?
+  theme:         "Light" | "Dark" (default Dark)
+  language:      ISO code, дефолт "uk", альтернативи "en", + (свій список)
+  lastFolder:    string?           # legacy single-folder, optional
+  lastFolders:   string[]          # current multi-folder
+  showPreview:   bool (default true)
+  queryHistory:  string[]          # max 50, dedupe, новіші зверху
 
 Локалізація:
   УСІ user-facing рядки в коді — через ключ ("Str.Search", "Str.Cancel", ...)
@@ -201,22 +317,17 @@ Layout (зверху вниз):
     не "завис", а просто довго парситься
   - формат статусу: "{stage} {n}/{total} ({pct%}) · {f/s} · ETA {duration} · {filename} ({Xs on this file})"
 
-Поведінка:
-  - DoubleClick на елементі → відкрити файл у дефолтній програмі ОС.
-  - Right-click → Open / Reveal in Explorer / Copy path.
-  - Cancel → cancel поточної операції (cancelable token / abort signal).
-  - На зміну folder → перевір чи побудовано індекс і онови індикатор.
-
 ============================================================================
 ВИМОГИ НЕ-ФУНКЦ.
 ============================================================================
 - Не блокувати UI thread. Усе IO/CPU — асинхронно/у воркерах.
-- Прогрес — кожні N (15–32) файлів, не на кожен.
+- Прогрес — кожні N (15–32) файлів, не на кожен; але CurrentFile
+  оновлюється на КОЖЕН файл (heartbeat у VM покаже "Xs on this file").
 - На пошкоджених файлах — ловити виняток, пропускати, продовжувати.
 - Юнікод-поведінка ідентична: Ordinal/OrdinalIgnoreCase порівняння,
   без культурно-специфічних правил.
 - Тести: дублюй покриття з docs/developer-guide.md (LineMatcher,
-  RTF, PlainText, обидва двигуни на тимчасових файлах).
+  RTF, PlainText, обидва двигуни на тимчасових файлах, multi-root dedupe).
 
 ============================================================================
 ВИХІДНІ АРТЕФАКТИ
@@ -229,8 +340,8 @@ Layout (зверху вниз):
 5. Список заміни залежностей (.NET → цільовий стек) у вигляді таблиці.
 
 Не вигадуй фічі поза цим документом. Якщо обраний стек не має прямого
-аналога (напр., FolderBrowserDialog), використай ідіоматичний еквівалент і
-поясни вибір у коментарі/PR-описі.
+аналога (напр., FolderBrowserDialog, WebView2, Mammoth.NET), використай
+ідіоматичний еквівалент і поясни вибір у коментарі/PR-описі.
 === END PROMPT ===
 ```
 
